@@ -9,13 +9,7 @@ from utils.lfcbm_utils import get_target_model
 from utils.args_utils import load_args
 import torchvision.transforms as transforms
 from functools import partial
-from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
-from PIL import Image
-try:
-    from torchvision.transforms import InterpolationMode
-    BICUBIC = InterpolationMode.BICUBIC
-except ImportError:
-    BICUBIC = Image.BICUBIC
+
 
 # TODO: 
 # 1. Remove args loading since it is already loaded in concept_quality.py
@@ -67,7 +61,7 @@ class _Model(torch.nn.Module):
         self.opt = torch.optim.Adam(self.parameters(), args.lr)
 
 
-class LFCBM(BaseModel):
+class LABO(BaseModel):
     def __init__(self, args):
         super().__init__(self, args)
         # Update the load_dir based on the model
@@ -101,13 +95,6 @@ class LFCBM(BaseModel):
                     transforms.Resize((224,224)),
                 ]
             )
-        c = Compose([
-                Resize((224,224), interpolation=BICUBIC),
-                CenterCrop((224,224)),
-                ToTensor(),
-                Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
-            ])
-
         return t
 
     def test(self, loader):

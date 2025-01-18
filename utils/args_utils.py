@@ -21,3 +21,9 @@ def load_args(args):
     setattr(args, "load_dir", load_dir)
     logger.debug(args)
     return args
+
+def save_args(args):
+    logger.debug("Saving args to {}".format(args.save_dir))
+    with open(os.path.join(args.save_dir, "args.txt"), 'w') as f:
+        json.dump(vars(args), f)
+    return

@@ -6,41 +6,28 @@ import json
 from loguru import logger
 from tqdm import tqdm
 import utils.clip as clip
-from utils.load_args import load_args
+from utils.args_utils import load_args
 import torchvision.transforms as transforms
+from utils.vlgcbm_utils import get_target_model, Backbone, BackboneCLIP, ConceptLayer, NormalizationLayer, FinalLayer
 from functools import partial
 
 class _Model(torch.nn.Module):
-    def __init__(self, backbone_name, W_c, W_g, b_g, proj_mean, proj_std, args, device="cuda"): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
+    def __init__(
+        self, backbone, cbl, norm, final, args
+    ):
         super().__init__()
         self.args = load_args(args)
-        model, _ = get_target_model(backbone_name, device)
-        #remove final fully connected layer
-        if "clip" in backbone_name:
-            self.backbone = model
-        elif "cub" in backbone_name:
-            self.backbone = partial(get_backbone_function, model)
-        else:
-            self.backbone = torch.nn.Sequential(*list(model.children())[:-1])
-            
-        self.proj_layer = torch.nn.Linear(in_features=W_c.shape[1], out_features=W_c.shape[0], bias=False).to(device)
-        self.proj_layer.load_state_dict({"weight":W_c})
-            
-        self.proj_mean = proj_mean
-        self.proj_std = proj_std
-        
-        self.final = torch.nn.Linear(in_features = W_g.shape[1], out_features=W_g.shape[0]).to(device)
-        self.final.load_state_dict({"weight":W_g, "bias":b_g})
-        self.concepts = None
-        
+        self.backbone = backbone
+        self.cbl = cbl
+        self.normalization = norm
+        self.final_layer = final
+
     def forward(self, x):
-        x = self.backbone(x)
-        x = torch.flatten(x, 1)
-        x = self.proj_layer(x)
-        concepts = x
-        proj_c = (x-self.proj_mean)/self.proj_std
-        x = self.final(proj_c)
-        out_dict = {'unnormalized_concepts':concepts, 'concepts':proj_c, 'preds':x}
+        embeddings = self.backbone(x)
+        concept_logits = self.cbl(embeddings)
+        concept_probs = self.normalization(concept_logits)
+        logits = self.final_layer(concept_probs)
+        out_dict = {'unnormalized_concepts':concept_logits, 'concepts':concept_probs, 'preds':logits}
         return out_dict
 
     def get_loss(self, args):
@@ -57,7 +44,29 @@ class _Model(torch.nn.Module):
 class VLGCBM(BaseModel):
   def __init__(self, args):
     super().__init__(self, args)
+    self.load_dir = args.load_dir
+    # Load Backbone model
+    if args.backbone.startswith("clip_"):
+        backbone = BackboneCLIP(args.backbone, use_penultimate=args.use_clip_penultimate, device=args.device)
+    else:
+        backbone = Backbone(args.backbone, args.feature_layer, args.device)
+    if os.path.exists(os.path.join(args.load_dir, "backbone.pt")):
+        ckpt = torch.load(os.path.join(args.load_dir, "backbone.pt"))
+        backbone.backbone.load_state_dict(ckpt)
+
+    # load concepts set directly from load model
+    with open(os.path.join(args.load_dir, "concepts.txt"), 'r') as f:
+        concepts = f.read().split("\n")
     
+    # get model
+    cbl = ConceptLayer.from_pretrained(args.load_dir, args.device)
+    normalization_layer = NormalizationLayer.from_pretrained(args.load_dir, args.device)
+    final_layer = FinalLayer.from_pretrained(args.load_dir, args.device)
+    self.model = _Model(backbone, cbl, normalization_layer, final_layer, args)
+    
+    # Update the args
+    self.args = self.model.args
+    self.args.batch_size = self.args.cbl_batch_size
 
   def train(self, loader):
     pass

@@ -74,9 +74,9 @@ def compute_importance_gbt(x_train, y_train, x_test, y_test):
     model = ensemble.GradientBoostingClassifier()
     model.fit(x_train.T, y_train[i, :])
     importance_matrix[:, i] = np.abs(model.feature_importances_)
-    train_loss.append(np.mean(model.predict(x_train.T) == y_train[i, :]))
-    test_loss.append(np.mean(model.predict(x_test.T) == y_test[i, :]))
-  return importance_matrix, np.mean(train_loss), np.mean(test_loss)
+    #train_loss.append(np.mean(model.predict(x_train.T) == y_train[i, :]))
+    #test_loss.append(np.mean(model.predict(x_test.T) == y_test[i, :]))
+  return importance_matrix, 0,0 #np.mean(train_loss), np.mean(test_loss) 235hudhf
 
 
 def disentanglement_per_code(importance_matrix):

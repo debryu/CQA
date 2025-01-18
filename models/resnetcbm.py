@@ -5,7 +5,6 @@ import os
 import json
 from loguru import logger
 from tqdm import tqdm
-from utils.lfcbm_utils import get_target_model
 from utils.args_utils import load_args
 import torchvision.transforms as transforms
 from functools import partial
@@ -17,78 +16,51 @@ try:
 except ImportError:
     BICUBIC = Image.BICUBIC
 
+from models.training.resnetcbm import PretrainedResNetModel
+
 # TODO: 
 # 1. Remove args loading since it is already loaded in concept_quality.py
-
+# 2. Remove the TEMP comments and workarounds
 def get_backbone_function(model, x):
     return model.features(x)
 
 class _Model(torch.nn.Module):
-    def __init__(self, backbone_name, W_c, W_g, b_g, proj_mean, proj_std, args, device="cuda"): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
+    def __init__(self, args, device="cuda"): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
         super().__init__()
-        self.args = load_args(args)
-        model, _ = get_target_model(backbone_name, device)
-        #remove final fully connected layer
-        if "clip" in backbone_name:
-            self.backbone = model
-        elif "cub" in backbone_name:
-            self.backbone = partial(get_backbone_function, model)
-        else:
-            self.backbone = torch.nn.Sequential(*list(model.children())[:-1])
-            
-        self.proj_layer = torch.nn.Linear(in_features=W_c.shape[1], out_features=W_c.shape[0], bias=False).to(device)
-        self.proj_layer.load_state_dict({"weight":W_c})
-            
-        self.proj_mean = proj_mean
-        self.proj_std = proj_std
-        
-        self.final = torch.nn.Linear(in_features = W_g.shape[1], out_features=W_g.shape[0]).to(device)
-        self.final.load_state_dict({"weight":W_g, "bias":b_g})
-        self.concepts = None
+        # Load the PretrainedResNetModel
+        # TEMP
+        import argparse
+        t_args = argparse.Namespace(num_epochs=10, optimizer='adam', optimizer_kwargs={}, scheduler_kwargs={"lr_scheduler_type":"plateau", "additional_kwargs":{}}) 
+        self.backbone = PretrainedResNetModel(t_args)
+        # Load the backbone
+        self.backbone.load_state_dict(torch.load("C:\\Users\\debryu\\Desktop\\VS_CODE\\HOME\\ML\\work\\CQ\\saved_models\\resnetcbm\\cbm_celeba_mini_unfrozen1_bestmodel.pth"))
+        self.args = args
+        self.args.batch_size = 64
         
     def forward(self, x):
-        x = self.backbone(x)
-        x = torch.flatten(x, 1)
-        x = self.proj_layer(x)
-        concepts = x
-        proj_c = (x-self.proj_mean)/self.proj_std
-        x = self.final(proj_c)
-        out_dict = {'unnormalized_concepts':concepts, 'concepts':proj_c, 'preds':x}
+        concepts = self.backbone(x) 
+        concepts = torch.nn.functional.sigmoid(concepts)
+        # Generate random preds with dimension batch_size x 2
+        preds = torch.rand((x.shape[0], 2)).to(self.args.device)
+        out_dict = {'unnormalized_concepts':concepts, 'concepts':concepts, 'preds':preds}
         return out_dict
 
     def get_loss(self, args):
         return NotImplementedError('No loss implemented')
-        if args.dataset in ['shapes3d', 'dsprites', 'kandinsky','mnist']:
-            return CBM_Loss(args, int_C=args.num_C)
-        else: 
-            return NotImplementedError('Wrong dataset choice')
         
     def start_optim(self, args):
+        return NotImplementedError('No loss implemented')
         self.opt = torch.optim.Adam(self.parameters(), args.lr)
 
 
-class LFCBM(BaseModel):
+class RESNETCBM(BaseModel):
     def __init__(self, args):
         super().__init__(self, args)
         # Update the load_dir based on the model
         #lfcbm_saved_path = self.saved_models[args.model]
         #args.load_dir = os.path.join(lfcbm_saved_path,args.load_dir)
         self.load_dir = args.load_dir
-
-        ''' LOAD CBM '''
-        with open(os.path.join(self.load_dir ,"args.txt"), 'r') as f:
-            self.args = json.load(f)
-
-        logger.debug(f"{self.args}")
-
-        W_c = torch.load(os.path.join(self.load_dir ,"W_c.pt"), map_location=self.args['device'])
-        W_g = torch.load(os.path.join(self.load_dir, "W_g.pt"), map_location=self.args['device'])
-        b_g = torch.load(os.path.join(self.load_dir, "b_g.pt"), map_location=self.args['device'])
-
-        proj_mean = torch.load(os.path.join(self.load_dir, "proj_mean.pt"), map_location=self.args['device'])
-        proj_std = torch.load(os.path.join(self.load_dir, "proj_std.pt"), map_location=self.args['device'])
-
-        self.model = _Model(self.args['backbone'], W_c, W_g, b_g, proj_mean, proj_std, args, self.args['device'])
+        self.model = _Model(args)
         self.args = self.model.args
 
     def train(self, loader):
