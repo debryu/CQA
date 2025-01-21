@@ -17,9 +17,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Dynamic flags based on initial flag value.")
     
     # Add the primary flag
-    parser.add_argument('-model', required=True, type=str, choices=['lfcbm', 'resnetcbm'], help="Specify the model to train.")
+    parser.add_argument('-model','-m', required=True, type=str, choices=['lfcbm', 'resnetcbm'], help="Specify the model to train.")
     parser.add_argument('-logger', type=str, default="DEBUG", help="Logging level", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
-    parser.add_argument("-dataset", type=str, default="celeba", help="Dataset to use")
+    parser.add_argument("-dataset",'-d', type=str, default="celeba", help="Dataset to use")
     # Parse known arguments to determine the value of --model
     args, remaining_args = parser.parse_known_args()
     
