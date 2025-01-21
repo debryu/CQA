@@ -13,7 +13,8 @@ from utils.llamaoracle_utils import query_llama
 
 def train(args):
     # load concepts 
-    path = CONCEPT_SETS[args.dataset]
+    ds = args.dataset.split("_")[0]
+    path = CONCEPT_SETS[ds]
     with open(path, 'r') as f:
         concepts = f.read().split("\n")
     queries = []
