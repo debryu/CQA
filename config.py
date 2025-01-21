@@ -2,6 +2,7 @@ SAVED_MODELS_FOLDER = {
   "vlgcbm":"./saved_models/",
   "lfcbm":"./saved_models/",
   "resnetcbm":"./saved_models/",
+  "llamaoracle":"./saved_models/",
   #"lfcbm":"./models/LFC/saved_models/",
 }
 
