@@ -64,4 +64,6 @@ def parse_labo_args(parser, args):
   raise NotImplementedError("Not implemented yet")
 
 def parse_llamaoracle_args(parser,args):
+  parser.add_argument("-start_idx", type=int, default=0, help="Which index of the dataset to start from when quering the oracle")
+  parser.add_argument("-end_idx", type=int, default=1000, help="Which index of the dataset to start from when quering the oracle")
   return parser
