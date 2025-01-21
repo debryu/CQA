@@ -261,6 +261,7 @@ model_urls = {
 class PretrainedResNetModel(DeepLearningModel):
     def __init__(self, args, build=True):
         self.inplanes = 64
+        print(args)
         super().__init__(args)
         self.dropout = args.dropout_prob
         
