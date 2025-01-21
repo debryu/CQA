@@ -243,7 +243,7 @@ def save_target_activations(target_model, dataset, save_name, target_layers = ["
         hooks[target_layer] = eval(command)
     
     with torch.no_grad():
-        for images, labels, _ in tqdm(DataLoader(dataset, batch_size)):
+        for images, _, _ in tqdm(DataLoader(dataset, batch_size)):
             features = target_model(images.to(device))
     
     for target_layer in target_layers:
@@ -266,7 +266,7 @@ def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     with torch.no_grad():
-        for images, labels, _ in tqdm(DataLoader(dataset, batch_size)):        # Removed num_workers=8, pin_memory=True
+        for images, _, _ in tqdm(DataLoader(dataset, batch_size)):        # Removed num_workers=8, pin_memory=True
             features = model.encode_image(images.to(device))
             all_features.append(features.cpu())
 

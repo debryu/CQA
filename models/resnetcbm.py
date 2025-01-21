@@ -31,9 +31,10 @@ class _Model(torch.nn.Module):
         # TEMP
         import argparse
         t_args = argparse.Namespace(num_epochs=10, optimizer='adam', optimizer_kwargs={}, scheduler_kwargs={"lr_scheduler_type":"plateau", "additional_kwargs":{}}) 
+        t_args.num_c = args.num_c
         self.backbone = PretrainedResNetModel(t_args)
         # Load the backbone
-        self.backbone.load_state_dict(torch.load("C:\\Users\\debryu\\Desktop\\VS_CODE\\HOME\\ML\\work\\CQ\\saved_models\\resnetcbm\\cbm_celeba_mini_unfrozen1_bestmodel.pth"))
+        self.backbone.load_state_dict(torch.load("C:\\Users\\debryu\\Desktop\\VS_CODE\\HOME\\ML\\work\\CQ\\saved_models\\resnetcbm\\cbm_shapes3d_mini_unfrozen1_bestmodel.pth"))
         self.args = args
         self.args.batch_size = 64
         

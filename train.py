@@ -6,11 +6,18 @@ import datetime
 import setproctitle, socket, uuid
 from core.train_models import run
 
+# TODO: add seed for reproducibility
+'''
+Example:
+python train.py -model vlgcbm -dataset celeba -e 5
+
+'''
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Dynamic flags based on initial flag value.")
     
     # Add the primary flag
-    parser.add_argument('-model', required=True, type=str, choices=['lfcbm', 'debug'], help="Specify the model to train.")
+    parser.add_argument('-model', required=True, type=str, choices=['lfcbm', 'resnetcbm'], help="Specify the model to train.")
     parser.add_argument('-logger', type=str, default="DEBUG", help="Logging level", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     parser.add_argument("-dataset", type=str, default="celeba", help="Dataset to use")
     # Parse known arguments to determine the value of --model

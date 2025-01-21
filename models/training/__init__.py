@@ -11,6 +11,8 @@ for model in _get_all_trainers():
   mod = importlib.import_module(f"models.training.{model}")
   trainers[model] = getattr(mod, "train")
 
+logger.debug(f"Loaded trainers: {trainers}")
+
 def get_trainer(args):
-  logger.info(f"Getting model {args.model}")
-  return trainers[args.model](args)
+  logger.info(f"Getting trainer model {args.model}")
+  return trainers[args.model]

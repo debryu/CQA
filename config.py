@@ -13,10 +13,12 @@ ACTIVATIONS_PATH = {
 DATASETS_FOLDER_PATHS = {
   "celeba":"C:\\Users\\debryu\\Desktop\\VS_CODE\\HOME\\ML\\work\\VLG-CBM\\datasets\\celeba_manual_download",
   "shapes3d":"./data/shapes3d/",
+  "cifar10":"./data/cifar10/",
 }
 
 CONCEPT_SETS = {
-  "celeba":"./data/concepts/celeba/",
+  "celeba":"./data/concepts/celeba/handmade.txt",
+  "cifar10": "./data/concepts/cifar10/cifar10_filtered.txt",
 }
 
 LABELS = {

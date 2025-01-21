@@ -57,8 +57,8 @@ class BaseModel():
             logits = out_dict['preds']
             c_repres = out_dict['concepts']
         
-        print(torch.min(c_repres))
-        print(torch.max(c_repres))
+        #print(torch.min(c_repres))
+        #print(torch.max(c_repres))
         # collect data
         annotations.append(concepts_one_hot)
         concepts.append(c_repres)

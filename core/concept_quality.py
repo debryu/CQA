@@ -5,7 +5,7 @@ import os
 import json
 from config import SAVED_MODELS_FOLDER
 from utils.args_utils import load_args
-from utils.utils import compute_concept_frequencies
+#from utils.utils import compute_concept_frequencies
 from models import get_model
 from loguru import logger
 from sklearn.metrics import classification_report as cr

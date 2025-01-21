@@ -1,10 +1,43 @@
-from torchvision.datasets import CelebA
-from torch.utils.data import Subset
+from torchvision.datasets import CelebA, CIFAR10
+from torch.utils.data import Subset, Dataset
 import torch
 from tqdm import tqdm
 import os
 import numpy as np
 from datasets.utils import create_dataset
+
+'''-------------------------------------------------------------------------'''
+'''
+    TORCHVISION DATASETS
+'''
+'''-------------------------------------------------------------------------'''
+
+class Cifar10Custom(CIFAR10):
+    name = "cifar10"
+    def __init__(
+        self,
+        root,
+        split: str = "train",
+        target_type = "attr",
+        transform = None,
+        target_transform = None,
+        download: bool = True,
+    ) -> None:
+      '''
+      '''
+      self.has_concepts = False
+      self.classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+      if split == 'train':
+        train = True
+      else:
+        train = False
+      
+      super().__init__(root=root,train=train,transform=transform,target_transform=target_transform,download=download)
+      
+    def __getitem__(self, index: int):
+        x, y = super().__getitem__(index)
+        return x, -1, y
+
 
 class CelebACustom(CelebA):
     name = "celeba"
@@ -24,6 +57,11 @@ class CelebACustom(CelebA):
         label: the index of the attribute to use as label
       '''
       assert type(label) == int # label must be an integer
+      self.has_concepts = True
+      self.classes = ["5_o_Clock_Shadow","Arched_Eyebrows","Attractive","Bags_Under_Eyes","Bald","Bangs","Big_Lips","Big_Nose","Black_Hair","Blond_Hair",
+                      "Blurry","Brown_Hair","Bushy_Eyebrows","Chubby","Double_Chin","Eyeglasses","Goatee","Gray_Hair","Heavy_Makeup","High_Cheekbone",
+                      "Mouth_Slightly_Open","Mustache","Narrow_Eyes","No_Beard","Oval_Face","Pale_Skin","Pointy_Nose","Receding_Hairline","Rosy_Cheeks","Sideburns",
+                      "Smiling","Straight_Hair","Wavy_Hair","Wearing_Earrings","Wearing_Hat","Wearing_Lipstick","Wearing_Necklace","Wearing_Necktie","Young"]
       if split == 'val':
         split = 'valid'
       super().__init__(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download)
@@ -61,10 +99,13 @@ class CelebAMini(Subset):
         label: the index of the attribute to use as label
       '''
       assert type(label) == int # label must be an integer
+      self.has_concepts = True
+
       if split == 'val':
         split = 'valid'
       
       self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
+      self.classes = self.data.classes
       self.subset_indices = range(subset_indices[0],subset_indices[1])
       super().__init__(self.data,self.subset_indices)
       
@@ -72,11 +113,13 @@ class SHAPES3D_Custom(torch.utils.data.Dataset):
     name = "shapes3d"
     def __init__(self, root='./data/shapes3d', split='train', transform = None, args=None):
         self.base_path = os.path.join(root, '3dshapes.h5')
+        self.has_concepts = True
         # Check if the dataset is already created
         if not os.path.exists(os.path.join(root, split+'_split_imgs.npy')) or not os.path.exists(os.path.join(root, split+'_split_cl.npy')):
             create_dataset(root, args)
         self.images= np.load(os.path.join(root, split+'_split_imgs.npy'), allow_pickle=True)
 
+        self.classes = ['not red pill', 'red pill']
         concepts_and_labels = np.load(os.path.join(root, split+'_split_cl.npy'), allow_pickle=True)
         self.labels = concepts_and_labels[:,-1]
         self.concepts = concepts_and_labels[:,:-1]
@@ -91,3 +134,101 @@ class SHAPES3D_Custom(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.images)
+
+
+'''-------------------------------------------------------------------------'''
+'''
+    CUSTOM IMPLEMENTED DATASETS
+'''
+'''-------------------------------------------------------------------------'''
+
+import os
+import pandas as pd
+from torchvision.datasets.folder import default_loader
+from torchvision.datasets.utils import download_url
+
+class Cub2011(Dataset):
+    name = "cub"
+    url = 'https://data.caltech.edu/records/65de6-vp158/files/CUB_200_2011.tgz?download=1'
+    filename = 'CUB_200_2011.tgz'
+    tgz_md5 = '97eceeb196236b17998738112f37df78'
+
+    def __init__(self, root, split='train', transform=None, download=True, args=None):
+        self.root = root
+        self.has_concepts = True
+        self.transform = transform
+        self.loader = default_loader
+        self.split = split
+        self.args = args
+        if download:
+            self._download()
+
+        if not self._check_integrity():
+            raise RuntimeError('Dataset not found or corrupted.' +
+                               ' You can use download=True to download it')
+
+    def _load_metadata(self):
+        images = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'images.txt'), sep=' ',
+                             names=['img_id', 'filepath'])
+        image_class_labels = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'image_class_labels.txt'),
+                                         sep=' ', names=['img_id', 'target'])
+        train_test_split = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'train_test_split.txt'),
+                                       sep=' ', names=['img_id', 'is_training_img'])
+
+        data = images.merge(image_class_labels, on='img_id')
+        self.data = data.merge(train_test_split, on='img_id')
+
+        if self.split == 'train':
+            self.data = self.data[self.data.is_training_img == 1]
+        else:
+            test_valid_data = self.data[self.data.is_training_img == 0]
+            tv_len = len(test_valid_data)
+            if 'val_test_ratio' in self.args:
+                val_test_ratio = self.args.val_test_ratio
+            else:
+                val_test_ratio = 0.2
+            val_len = int(tv_len * val_test_ratio)
+            test_len = tv_len - val_len
+            if self.split == 'test':  
+              self.data = test_valid_data[:test_len]
+            else:
+              self.data = test_valid_data[test_len:]
+
+    def _check_integrity(self):
+        try:
+            self._load_metadata()
+        except Exception:
+            return False
+
+        for index, row in self.data.iterrows():
+            filepath = os.path.join(self.root, self.base_folder, row.filepath)
+            if not os.path.isfile(filepath):
+                print(filepath)
+                return False
+        return True
+
+    def _download(self):
+        import tarfile
+
+        if self._check_integrity():
+            print('Files already downloaded and verified')
+            return
+
+        download_url(self.url, self.root, self.filename, self.tgz_md5)
+
+        with tarfile.open(os.path.join(self.root, self.filename), "r:gz") as tar:
+            tar.extractall(path=self.root)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        sample = self.data.iloc[idx]
+        path = os.path.join(self.root, self.base_folder, sample.filepath)
+        target = sample.target - 1  # Targets start at 1 by default, so shift to 0
+        img = self.loader(path)
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, target

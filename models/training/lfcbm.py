@@ -1,13 +1,14 @@
 import os
-from utils.args_utils import save_args
-from config import folder_naming_convention, CONCEPT_SETS, ACTIVATIONS_PATH
 from loguru import logger
-from utils.lfcbm_utils import cos_similarity_cubed_single, save_activations, get_save_names, get_targets_only
 import torch
 import random
 from torch.utils.data import DataLoader, TensorDataset
 from models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
 from tqdm import tqdm
+
+from utils.lfcbm_utils import cos_similarity_cubed_single, save_activations, get_save_names, get_targets_only
+from datasets import get_dataset
+from config import folder_naming_convention, ACTIVATIONS_PATH
 
 def train(args):
     if not os.path.exists(args.save_dir):
@@ -34,7 +35,7 @@ def train(args):
         concepts = f.read().split("\n")
 
     concepts_dict = {'raw_concepts': concepts, 'raw_dim': len(concepts)}
-    classes = ['red pill', ' ']
+    classes = get_dataset(args.dataset).classes
     logger.debug(f"Classes: {classes}")
     logger.debug(f"Concepts: {concepts_dict}")
 
@@ -56,17 +57,17 @@ def train(args):
     
     #load features
     with torch.no_grad():
-        target_features = torch.load(target_save_name, map_location="cpu").float()
+        target_features = torch.load(target_save_name, map_location="cpu", weights_only=True).float()
         
-        val_target_features = torch.load(val_target_save_name, map_location="cpu").float()
+        val_target_features = torch.load(val_target_save_name, map_location="cpu", weights_only=True).float()
 
-        image_features = torch.load(clip_save_name, map_location="cpu").float()
+        image_features = torch.load(clip_save_name, map_location="cpu", weights_only=True).float()
         image_features /= torch.norm(image_features, dim=1, keepdim=True)
 
-        val_image_features = torch.load(val_clip_save_name, map_location="cpu").float()
+        val_image_features = torch.load(val_clip_save_name, map_location="cpu", weights_only=True).float()
         val_image_features /= torch.norm(val_image_features, dim=1, keepdim=True)
 
-        text_features = torch.load(text_save_name, map_location="cpu").float()
+        text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()
         text_features /= torch.norm(text_features, dim=1, keepdim=True)
         
         clip_features = image_features @ text_features.T            # Namely, P
@@ -92,10 +93,10 @@ def train(args):
     #save memory by recalculating
     del clip_features
     with torch.no_grad():
-        image_features = torch.load(clip_save_name, map_location="cpu").float()
+        image_features = torch.load(clip_save_name, map_location="cpu", weights_only=True).float()
         image_features /= torch.norm(image_features, dim=1, keepdim=True)
 
-        text_features = torch.load(text_save_name, map_location="cpu").float()[highest>args.clip_cutoff]
+        text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()[highest>args.clip_cutoff]
         text_features /= torch.norm(text_features, dim=1, keepdim=True)
     
         clip_features = image_features @ text_features.T                # This is the actual P, removing the concepts that are not activating highly
@@ -131,7 +132,7 @@ def train(args):
                 best_val_loss = val_loss
                 best_step = i
                 best_weights = proj_layer.weight.clone()
-                logger.info("Step:{}, Avg train similarity:{:.4f}, Avg val similarity:{:.4f}".format(best_step, -loss.cpu(),
+                logger.debug("Step:{}, Avg train similarity:{:.4f}, Avg val similarity:{:.4f}".format(best_step, -loss.cpu(),
                                                                                                -best_val_loss.cpu()))
                 
             elif val_loss < best_val_loss:
@@ -155,14 +156,16 @@ def train(args):
         
     #print('Stage 1', len(concepts))
     similarities = []
-    logger.debug('Starting with:', len(concepts)) 
+    logger.debug(f'Starting with: {len(concepts)}')
     removed_ids_second_round = []
     for i, concept in enumerate(concepts):
         similarities.append(sim[i].item())
         if sim[i]<=args.interpretability_cutoff:
             logger.debug("Deleting {}, Iterpretability:{:.3f}".format(concept, sim[i]))
             removed_ids_second_round.append(i)
-    logger.debug('Ending with:',len(concepts))
+
+    concepts = [concepts[i] for i in range(len(concepts)) if interpretable[i]]
+    logger.debug(f'Ending with: {len(concepts)}')
     logger.debug(f'Removed concepts: {removed_ids_second_round} -> for interpretability')
     logger.debug(f'Size: {len(removed_ids_second_round)}')
     logger.debug(f'Similarities: {similarities}')
@@ -172,10 +175,10 @@ def train(args):
     #print(interpretable)
     #print(len(interpretable))
     W_c = proj_layer.weight[interpretable]
-    logger.info('Shape of the final layer {W_c.shape}')
+    logger.info(f'Shape of the final layer {W_c.shape}')
    
     #print('W_c:', W_c.shape)
-    proj_layer = torch.nn.Linear(in_features=target_features.shape[1], out_features=len(concepts), bias=False)
+    proj_layer = torch.nn.Linear(in_features=W_c.shape[1], out_features=len(concepts), bias=False)
     proj_layer.load_state_dict({"weight":W_c})
 
     train_targets = get_targets_only(args.dataset, "train")
@@ -208,7 +211,7 @@ def train(args):
 
     # Make linear model and zero initialize
     n_concepts_final_layer = train_c.shape[1]
-    logger.debug(n_concepts_final_layer)
+    logger.debug(f"N. of concepts in the final bottleneck: {n_concepts_final_layer}")
     # add n_concepts to the args
     setattr(args, 'n_concepts_final_layer', n_concepts_final_layer)
     linear = torch.nn.Linear(train_c.shape[1],len(classes)).to(args.device)
@@ -234,10 +237,10 @@ def train(args):
         for concept in concepts[1:]:
             f.write('\n'+concept)
     
-    save_args(args)
-
     torch.save(train_mean, os.path.join(save_name, "proj_mean.pt"))
     torch.save(train_std, os.path.join(save_name, "proj_std.pt"))
     torch.save(W_c, os.path.join(save_name ,"W_c.pt"))
     torch.save(W_g, os.path.join(save_name, "W_g.pt"))
     torch.save(b_g, os.path.join(save_name, "b_g.pt"))
+
+    return args

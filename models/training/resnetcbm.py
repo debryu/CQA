@@ -15,6 +15,8 @@ from datasets.utils import compute_imbalance
 from torchvision import transforms
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import os
+from loguru import logger
 
 class DeepLearningModel(nn.Module):
     def __init__(self, args):
@@ -23,6 +25,8 @@ class DeepLearningModel(nn.Module):
         self.optimizer_name = args.optimizer
         self.optimizer_kwargs = args.optimizer_kwargs
         self.scheduler_kwargs = args.scheduler_kwargs
+        self.scheduler_type = args.scheduler_type
+        
 
         '''
         self.num_epochs = cfg['num_epochs']
@@ -205,19 +209,19 @@ class DeepLearningModel(nn.Module):
         elif optimizer_name == 'adam':
             self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.parameters()),
                                         **optimizer_kwargs)
-        elif optimizer_name == 'adamW':
+        elif optimizer_name == 'adamw':
             self.optimizer = optim.AdamW(filter(lambda p: p.requires_grad, self.parameters()),
                                     **optimizer_kwargs)
         else:
             raise Exception("Not a valid optimizer")
 
-        self.lr_scheduler_type = scheduler_kwargs['lr_scheduler_type']
-        if self.lr_scheduler_type == 'step':
+        
+        if self.scheduler_type == 'step':
             self.scheduler = lr_scheduler.StepLR(self.optimizer,
-                                                 **scheduler_kwargs['additional_kwargs'])
-        elif self.lr_scheduler_type == 'plateau':
+                                                 **scheduler_kwargs)
+        elif self.scheduler_type == 'plateau':
             self.scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer,
-                                                            **scheduler_kwargs['additional_kwargs'])
+                                                            **scheduler_kwargs)
         else:
             raise Exception("invalid scheduler")
 
@@ -258,13 +262,13 @@ class PretrainedResNetModel(DeepLearningModel):
     def __init__(self, args, build=True):
         self.inplanes = 64
         super().__init__(args)
-        self.dropout = 0.05
+        self.dropout = args.dropout_prob
         
         self.fc_layers = [1000,1000,args.num_c]
         self.pretrained_path = None
-        self.pretrained_model_name = 'resnet18'
+        self.pretrained_model_name = args.backbone
         self.pretrained_exclude_vars = None
-        self.conv_layers_before_end_to_unfreeze = 1
+        self.conv_layers_before_end_to_unfreeze = args.unfreeze
 
         # ---- Architecture based on selected model ----
         block = BasicBlock if self.pretrained_model_name in ['resnet18', 'resnet34'] else Bottleneck
@@ -450,9 +454,9 @@ class PretrainedResNetModel(DeepLearningModel):
                     to_unfreeze = True
 
             if to_unfreeze:
-                print("Param %s is UNFROZEN" % name, param.data.shape)
+                logger.debug("Param %s is UNFROZEN" % name, param.data.shape)
             else:
-                print("Param %s is FROZEN" % name, param.data.shape)
+                logger.debug("Param %s is FROZEN" % name, param.data.shape)
                 param.requires_grad = False
 
 
@@ -466,7 +470,7 @@ def get_conv_layer_substring(name):
     return None
 
 
-def train():
+def train(args):
     print('Resampling the dataset')
     t =transforms.Compose([
             transforms.ToTensor(),
@@ -476,28 +480,33 @@ def train():
             
             #normalize,
         ])
-    data = get_dataset('shapes3d', split='train', transform=t)
-    args = argparse.Namespace(num_epochs=10, optimizer='adam', optimizer_kwargs={}, scheduler_kwargs={"lr_scheduler_type":"plateau", "additional_kwargs":{}})    
-    args.num_c = data[0][1].shape[0]
+    data = get_dataset(args.dataset, split='train', transform=t)
+    if not data.has_concepts:
+        args.num_c = 128
+    else:
+        args.num_c = data[0][1].shape[0]
     test = PretrainedResNetModel(args)
 
     #normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      #std=[0.229, 0.224, 0.225])
-    fr = compute_imbalance(data)
+    
     #sampler = torch.utils.data.BatchSampler(ImbalancedDatasetSampler(data,fr), batch_size=512, drop_last=True)
-    train_loader = torch.utils.data.DataLoader(data, batch_size=512, shuffle=True, pin_memory=True)
+    train_loader = torch.utils.data.DataLoader(data, batch_size=args.batch_size, shuffle=True, pin_memory=True)
     val_data = get_dataset('shapes3d', split='val', transform=t)
-    test_loader = torch.utils.data.DataLoader(val_data, batch_size=512, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size, shuffle=False)
     loss_fn = torch.nn.BCEWithLogitsLoss(reduction='none')
+
     loss_s = []
-    balancing_weight = 0.4
+    fr = []
+    #fr = compute_imbalance(data)
+    balancing_weight = args.balancing_weight
     for ratio in fr:
         loss_s.append(torch.nn.BCEWithLogitsLoss(weight=torch.FloatTensor([ratio]).cuda()))
     loss_fn_m = torch.nn.BCEWithLogitsLoss(reduction='mean')
     optimizer = torch.optim.Adam(test.parameters(), lr=0.0001)
     best_loss = 1000000
     patience = 0
-    for e in range(1000):
+    for e in range(args.n_epochs):
         train_loss = []
         for batch in tqdm(train_loader, desc=f'Epoch {e}'):
             imgs, concepts, labels = batch
@@ -519,31 +528,34 @@ def train():
             train_loss.append(loss_m.item())
             loss_m.backward()
             optimizer.step()
-
-        test_loss = []
-        for batch in tqdm(test_loader, desc=f'Validation {e}'):
-            imgs, concepts, labels = batch
-            # Show the first image
-            #plt.imshow(imgs[0].permute(1, 2, 0))
-            #plt.show()
-            imgs = imgs.to('cuda')
-            concepts = concepts.to(device='cuda', dtype=torch.float32)
-            outputs = test(imgs)
-            #outputs = torch.nn.functional.sigmoid(outputs)
-            #print(outputs)
-            #print(concepts)
-            optimizer.zero_grad()
-            loss = loss_fn_m(outputs, concepts)
-            test_loss.append(loss.item())
+        logger.info(f'Epoch {e} loss {np.mean(train_loss)}')
         
-        test_loss = np.mean(test_loss)
-        print(f'Epoch {e} loss {np.mean(train_loss)}')
-        print(f"Val loss: {test_loss}")
-        if test_loss < best_loss:
-            best_loss = test_loss
-            torch.save(test.state_dict(), 'saved_models/cbm_celeba_mini_unfrozen1_bestmodel.pth')
-            patience = 0
-            print(f"Best model in epoch {e}")
-        if patience > 10:
-            break
-        patience += 1
+        if e % args.val_interval == 0:
+            test_loss = []
+            for batch in tqdm(test_loader, desc=f'Validation {e}'):
+                imgs, concepts, labels = batch
+                # Show the first image
+                #plt.imshow(imgs[0].permute(1, 2, 0))
+                #plt.show()
+                imgs = imgs.to('cuda')
+                concepts = concepts.to(device='cuda', dtype=torch.float32)
+                outputs = test(imgs)
+                #outputs = torch.nn.functional.sigmoid(outputs)
+                #print(outputs)
+                #print(concepts)
+                optimizer.zero_grad()
+                loss = loss_fn_m(outputs, concepts)
+                test_loss.append(loss.item())
+            test_loss = np.mean(test_loss)
+            logger.info(f"Val loss: {test_loss}")
+        
+            if test_loss < best_loss:
+                best_loss = test_loss
+                torch.save(test.state_dict(), os.path.join(args.save_dir, f"{args.dataset}_{args.model}.pth"))
+                patience = 0
+                print(f"Best model in epoch {e}")
+            if patience > args.patience:
+                break
+            patience += 1
+    
+    return args

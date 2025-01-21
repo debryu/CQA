@@ -11,11 +11,13 @@ def _get_all_trainers():
 
 models = {}
 for model in _get_all_models():
-  logger.debug(f"Loading model {model}")
+  #logger.debug(f"Loading model {model}")
   model_class = importlib.import_module(f"models.{model}")
   mod = importlib.import_module(f"models.{model}")
   class_names = {x.lower():x for x in mod.__dir__()}[model]
   models[model] = getattr(mod, class_names)
+
+logger.debug(f"Available models: {models}")
 
 def get_model(args):
   logger.info(f"Getting model {args.model}")

@@ -1,7 +1,7 @@
 import json
 from loguru import logger
 import os
-
+import argparse
 def load_args(args):
     '''
     Load the args from the args.load_dir folder.
@@ -22,7 +22,7 @@ def load_args(args):
     logger.debug(args)
     return args
 
-def save_args(args):
+def save_args(args: argparse.Namespace):
     logger.debug("Saving args to {}".format(args.save_dir))
     with open(os.path.join(args.save_dir, "args.txt"), 'w') as f:
         json.dump(vars(args), f)
