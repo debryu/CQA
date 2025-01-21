@@ -11,7 +11,6 @@ from datasets import get_dataset
 from config import folder_naming_convention, ACTIVATIONS_PATH, CONCEPT_SETS
 from utils.llamaoracle_utils import query_llama
 
-
 def train(args):
     # load concepts 
     path = CONCEPT_SETS[args.dataset]
@@ -24,9 +23,11 @@ def train(args):
     t = transforms.Compose([
     transforms.Lambda(lambda x: np.array(x))  # Ensure it's a NumPy array
     ])
-    ds = get_dataset('celeba_mini', subset_indices=[0,4], split='train', transform=t)
+    start = args.start_idx
+    end = args.end_idx
+    ds = get_dataset(args.dataset, subset_indices=[start,end], split='train', transform=t)
     dl = DataLoader(ds, batch_size=1, shuffle=False)
-    print(query_llama(dl, queries))
-
+    retrieved_concepts = query_llama(dl, queries)
+    torch.save(retrieved_concepts, os.path.join(args.save_dir,f"{args.dataset}_{start}-{end}"))
     return args
 

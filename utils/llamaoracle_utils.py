@@ -43,10 +43,9 @@ def query_llama(dl, queries):
             text += "\n" + response["message"]['content']
             chat.append(text)
         c_array = torch.tensor(c_array)
-        print(c_array.shape)
         c_tensors.append(c_array)
         output.append(chat)
     
     c_tensors = torch.stack(c_tensors, dim=0)
-    print(c_tensors.shape)
-    return output
+    logger.debug(f"Final shape: {c_tensors.shape}")
+    return c_tensors
