@@ -62,3 +62,6 @@ def parse_resnetcbm_args(parser, args):
 
 def parse_labo_args(parser, args):
   raise NotImplementedError("Not implemented yet")
+
+def parse_llamaoracle_args(parser,args):
+  return parser
