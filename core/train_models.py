@@ -8,7 +8,8 @@ from utils.args_utils import save_args
 def run(args):
     # Save folder
     folder_name = folder_naming_convention(args)
-    args.save_dir = os.path.join(SAVED_MODELS_FOLDER[args.model],folder_name)
+    if args.save_dir is None:
+        args.save_dir = os.path.join(SAVED_MODELS_FOLDER[args.model],folder_name)
     logger.debug(f"Created folder: {args.save_dir}")
     os.makedirs(args.save_dir, exist_ok=True)
     logger.info(f"Starting training model {args.model}")

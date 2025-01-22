@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument('-logger', type=str, default="DEBUG", help="Logging level", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     parser.add_argument("-dataset",'-d', type=str, default="celeba", help="Dataset to use")
     parser.add_argument("-config", type=str, default=None, help="Path to a config file for setting all the parameters in a json file")
+    parser.add_argument("-save_dir", type=str, default=None, help="Folder where to save the model")
     # Parse known arguments to determine the value of --model
     args, remaining_args = parser.parse_known_args()
     

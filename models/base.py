@@ -11,10 +11,11 @@ class BaseModel():
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.__dict__}>"
 
-    def get_preprocess(self):
-      return None
+    def get_transform(self):
+      pass
+
     def get_loader(self, split = 'test'):
-      transform = self.get_preprocess()
+      transform = self.get_transform()
       dataset_name = self.args.dataset
       data = get_dataset(dataset_name, split = split, transform = transform)
       if split == 'train':

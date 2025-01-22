@@ -94,7 +94,7 @@ class LFCBM(BaseModel):
     def train(self, loader):
         pass
 
-    def get_preprocess(self):
+    def get_transform(self):
         t = transforms.Compose(
                 [
                     transforms.ToTensor(),

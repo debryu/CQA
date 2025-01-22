@@ -27,7 +27,6 @@ class _Model(torch.nn.Module):
         # Load the backbone
         self.backbone.load_state_dict(torch.load(os.path.join(args.load_dir, f'{args.dataset}_{args.model}.pth')))
         self.args = args
-        self.args.batch_size = args.batch_size
         
     def forward(self, x):
         concepts = self.backbone(x) 
@@ -58,7 +57,7 @@ class RESNETCBM(BaseModel):
     def train(self, loader):
         pass
 
-    def get_preprocess(self):
+    def get_transform(self):
         t = transforms.Compose(
                 [
                     transforms.ToTensor(),
