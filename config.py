@@ -22,6 +22,8 @@ CONCEPT_SETS = {
   "cifar10": "./data/concepts/cifar10/cifar10_filtered.txt",
 }
 
+LLM_GENERATED_ANNOTATIONS = "./data/llama_annotations"
+
 LABELS = {
   "celeba": ['male', 'female'],
 }
