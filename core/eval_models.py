@@ -1,5 +1,5 @@
 from loguru import logger
-import os
+import os, traceback
 from config import SAVED_MODELS_FOLDER
 from models import get_model
 from config import SAVED_MODELS_FOLDER
@@ -23,6 +23,7 @@ def eval_model(args):
             #CQA.save_im_as_img(base + fold, "importance_matrix", "Importance Matrix")
     except Exception as e:
         logger.error(f"Error in initializing CQA {args.load_dir}:\n{e}")
+        logger.error(traceback.format_exc())
         
     
 

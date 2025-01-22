@@ -16,6 +16,8 @@ logger.debug(f"Available datasets: {classes}")
 #probe_dataset, probe_split, probe_dataset_root_dir, preprocess_fn, split_idxs=None
 def get_dataset(ds_name,**kwargs):
   if not ds_name.endswith("_mini"):
+    if ds_name.endswith("temp"):
+      return classes[ds_name](**kwargs)
     if ds_name not in DATASETS_FOLDER_PATHS:
       raise ValueError(f"Dataset {ds_name} not found in DATASETS_FOLDER_PATHS")
     return classes[ds_name](root = DATASETS_FOLDER_PATHS[ds_name], **kwargs)

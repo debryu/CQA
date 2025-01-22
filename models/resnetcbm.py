@@ -25,18 +25,12 @@ def get_backbone_function(model, x):
     return model.features(x)
 
 class _Model(torch.nn.Module):
-    def __init__(self, args, device="cuda"): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
+    def __init__(self, args): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
         super().__init__()
-        # Load the PretrainedResNetModel
-        # TEMP
-        import argparse
-        t_args = argparse.Namespace(num_epochs=10, optimizer='adam', optimizer_kwargs={}, scheduler_kwargs={"lr_scheduler_type":"plateau", "additional_kwargs":{}}) 
-        t_args.num_c = args.num_c
-        self.backbone = PretrainedResNetModel(t_args)
+        self.backbone = PretrainedResNetModel(args)
         # Load the backbone
-        self.backbone.load_state_dict(torch.load("C:\\Users\\debryu\\Desktop\\VS_CODE\\HOME\\ML\\work\\CQ\\saved_models\\resnetcbm\\cbm_shapes3d_mini_unfrozen1_bestmodel.pth"))
+        self.backbone.load_state_dict(torch.load(os.path.join(args.load_dir, f'{args.dataset}_{args.model}.pth')))
         self.args = args
-        self.args.batch_size = 64
         
     def forward(self, x):
         concepts = self.backbone(x) 
@@ -67,7 +61,7 @@ class RESNETCBM(BaseModel):
     def train(self, loader):
         pass
 
-    def get_preprocess(self):
+    def get_transform(self):
         t = transforms.Compose(
                 [
                     transforms.ToTensor(),

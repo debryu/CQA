@@ -3,11 +3,11 @@ import importlib
 from loguru import logger
 
 def _get_all_models():
-    return [model.split(".")[0] for model in os.listdir("models") if model.endswith(".py") and model != "__init__.py" and model != "base.py"]
+    return [model.split(".")[0] for model in os.listdir("models") if model.endswith(".py") and model != "__init__.py" and model != "base.py" and model != "template.py"]
 
 #TODO: Add a function to get all trainers
 def _get_all_trainers():
-    return [model.split(".")[0] for model in os.listdir("models") if model.endswith(".py") and model != "__init__.py" and model != "base.py"]
+    return [model.split(".")[0] for model in os.listdir("models") if model.endswith(".py") and model != "__init__.py" and model != "base.py" and model != "base.py"]
 
 models = {}
 for model in _get_all_models():
