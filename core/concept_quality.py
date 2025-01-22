@@ -95,8 +95,8 @@ def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False
     logger.debug(f"Loading args from {folder_path}")
     args.load_dir = folder_path
     args = load_args(args)
+  
     # Load model
-    
     model = get_model(args)
     logger.debug(f"Model loaded: {model}")
     # args are uploaded in the model, so no need to pass them again

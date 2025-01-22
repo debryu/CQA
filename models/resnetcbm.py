@@ -5,7 +5,6 @@ import os
 import json
 from loguru import logger
 from tqdm import tqdm
-from utils.args_utils import load_args
 import torchvision.transforms as transforms
 from functools import partial
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
@@ -18,9 +17,6 @@ except ImportError:
 
 from models.training.resnetcbm import PretrainedResNetModel
 
-# TODO: 
-# 1. Remove args loading since it is already loaded in concept_quality.py
-# 2. Remove the TEMP comments and workarounds
 def get_backbone_function(model, x):
     return model.features(x)
 
