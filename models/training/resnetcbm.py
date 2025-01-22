@@ -493,7 +493,7 @@ def train(args):
     
     #sampler = torch.utils.data.BatchSampler(ImbalancedDatasetSampler(data,fr), batch_size=512, drop_last=True)
     train_loader = torch.utils.data.DataLoader(data, batch_size=args.batch_size, shuffle=True, pin_memory=True)
-    val_data = get_dataset('shapes3d', split='val', transform=t)
+    val_data = get_dataset(args.dataset, split='val', transform=t)
     test_loader = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size, shuffle=False)
     loss_fn = torch.nn.BCEWithLogitsLoss(reduction='none')
 

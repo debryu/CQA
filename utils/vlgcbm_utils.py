@@ -1,9 +1,12 @@
 from torchvision import models
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from pytorchcv.model_provider import get_model as ptcv_get_model
+import sys
 from datasets import get_dataset
 from typing import Optional, Tuple
 import torch
+import wandb
+from tqdm import tqdm
 import utils.clip as clip
 from utils.utils import get_resnet_imagenet_preprocess
 import os
@@ -12,6 +15,7 @@ import numpy as np
 from loguru import logger
 from functools import partial
 from config import LABELS
+from models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
 
 BACKBONE_ENCODING_DIMENSION = {
     "resnet18_cub": 512,
@@ -106,6 +110,98 @@ def get_concepts(concept_file: str, filter_file:Optional[str]=None):
 
 def get_classes(dataset_name):
     return LABELS[dataset_name]
+
+def load_concept_and_count(
+    save_dir: str, file_name: str = "concept_counts.txt", filter_file:Optional[str]=None
+):
+    with open(os.path.join(save_dir, file_name), "r") as f:
+        lines = f.readlines()
+        concepts = []
+        counts = []
+        for line in lines:
+            concept = line.split(" ")[:-1]
+            concept = " ".join(concept)
+            count = line.split(" ")[-1]
+            concepts.append(format_concept(concept))
+            counts.append(float(count))
+
+    if filter_file and os.path.exists(filter_file):
+        with open(filter_file) as f:
+            logger.info(f"Filtering concepts using {filter_file}")
+            to_filter_concepts = f.read().split("\n")
+        to_filter_concepts = [format_concept(concept) for concept in to_filter_concepts]
+        counts = [count for concept, count in zip(concepts, counts) if concept not in to_filter_concepts]
+        concepts = [concept for concept in concepts if concept not in to_filter_concepts]
+        assert len(concepts) == len(counts)
+
+    return concepts, counts
+
+def get_filtered_concepts_and_counts(
+    dataset_name,
+    raw_concepts,
+    preprocess=None,
+    val_split: Optional[float] = 0.1,
+    batch_size: int = 256,
+    num_workers: int = 4,
+    confidence_threshold: float = 0.10,
+    label_dir="outputs",
+    use_allones: bool = False,
+    seed: int = 42,
+):
+    # remove concepts that are not present in the dataset
+    dataloader = get_concept_dataloader(
+        dataset_name,
+        "train",
+        raw_concepts,
+        preprocess=preprocess,
+        val_split=val_split,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=False,
+        confidence_threshold=confidence_threshold,
+        crop_to_concept_prob=0.0,
+        label_dir=label_dir,
+        use_allones=use_allones,
+        seed=seed,
+        concept_only=True
+    )
+    # get concept counts
+    raw_concepts_count = torch.zeros(len(raw_concepts))
+    for data in tqdm(dataloader):
+        raw_concepts_count += data[1].sum(dim=0)
+
+    # remove concepts that are not present in the dataset
+    raw_concepts_count = raw_concepts_count.numpy()
+    concepts = [concept for concept, count in zip(raw_concepts, raw_concepts_count) if count > 0]
+    concept_counts = [count for _, count in zip(raw_concepts, raw_concepts_count) if count > 0]
+    filtered_concepts = [concept for concept, count in zip(raw_concepts, raw_concepts_count) if count == 0]
+    print(f"Filtered {len(raw_concepts) - len(concepts)} concepts")
+
+    return concepts, concept_counts, filtered_concepts
+
+def save_concept_count(
+    concepts,
+    counts,
+    save_dir: str,
+    file_name: str = "concept_counts.txt",
+):
+    with open(os.path.join(save_dir, file_name), "w") as f:
+        if len(concepts) != len(counts):
+            raise ValueError("Length of concepts and counts should be the same")
+        f.write(f"{concepts[0]} {counts[0]}")
+        for concept, count in zip(concepts[1:], counts[1:]):
+            f.write(f"\n{concept} {count}")
+
+def save_filtered_concepts(
+    filtered_concepts,
+    save_dir: str,
+    file_name: str = "filtered_concepts.txt",
+):
+    with open(os.path.join(save_dir, file_name), "w") as f:
+        if len(filtered_concepts) > 0:
+            f.write(filtered_concepts[0])
+            for concept in filtered_concepts[1:]:
+                f.write("\n" + concept)
 
 class Backbone(torch.nn.Module):
     # store intermediate feature values from backbone
@@ -375,7 +471,7 @@ class ConceptDataset(Dataset):
         return self.__getitem__all(idx)
 
     def __getitem__per_concept(self, idx):
-        image, target = self.torch_dataset[idx]
+        image, _, target = self.torch_dataset[idx]
 
         # return 1 hot vector of concepts
         data = self._get_data(idx)
@@ -421,7 +517,7 @@ class ConceptDataset(Dataset):
         return image, concept_one_hot, target
 
     def __getitem__all(self, idx):
-        image, target = self.torch_dataset[idx]
+        image, _, target = self.torch_dataset[idx]
 
         # get raw data
         data = self._get_data(idx)
@@ -498,7 +594,7 @@ class AllOneConceptDataset(ConceptDataset):
         logger.info(f"Assigning {self.per_class_concepts} concepts to each class")
 
     def __getitem__(self, idx):
-        image, target = self.torch_dataset[idx]
+        image, _, target = self.torch_dataset[idx]
         if self.preprocess:
             image = self.preprocess(image)
         concept_one_hot = torch.zeros((len(self.concepts),), dtype=torch.float)
@@ -569,3 +665,410 @@ def get_concept_dataloader(
         print("Using single worker")
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     return loader#, dataset
+
+def get_final_layer_dataset(
+    backbone: Backbone,
+    cbl: ConceptLayer,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    save_dir: str,
+    load_dir: str = None,
+    batch_size: int = 256,
+    device="cuda",
+    filter=None,
+):
+    if load_dir is None:
+        logger.info("Creating final layer training and validation datasets")
+        with torch.no_grad():
+            train_concept_features = []
+            train_concept_labels = []
+            logger.info("Creating final layer training dataset")
+            for features, _, labels in tqdm(train_loader):  #Originally was for features, _, labels in tqdm(train_loader):
+                #print(features.shape)
+                #print(c.shape)
+                #print(labels.shape)
+                #asd
+                features = features.to(device)
+                concept_logits = cbl(backbone(features))
+                train_concept_features.append(concept_logits.detach().cpu())
+                train_concept_labels.append(labels)
+            train_concept_features = torch.cat(train_concept_features, dim=0)
+            train_concept_labels = torch.cat(train_concept_labels, dim=0)
+
+            val_concept_features = []
+            val_concept_labels = []
+            logger.info("Creating final layer validation dataset")
+            for features, _, labels in tqdm(val_loader):
+                features = features.to(device)
+                concept_logits = cbl(backbone(features))
+                val_concept_features.append(concept_logits.detach().cpu())
+                val_concept_labels.append(labels)
+            val_concept_features = torch.cat(val_concept_features, dim=0)
+            val_concept_labels = torch.cat(val_concept_labels, dim=0)
+
+            # normalize concept features
+            train_concept_features_mean = train_concept_features.mean(dim=0)
+            train_concept_features_std = train_concept_features.std(dim=0)
+            train_concept_features = (train_concept_features - train_concept_features_mean) / train_concept_features_std
+            val_concept_features = (val_concept_features - train_concept_features_mean) / train_concept_features_std
+
+            # normalization layer
+            normalization_layer = NormalizationLayer(train_concept_features_mean, train_concept_features_std, device=device)
+    else:
+        # load normalized concept features
+        logger.info("Loading final layer training dataset")
+        train_concept_features = torch.load(os.path.join(load_dir, "train_concept_features.pt"))
+        train_concept_labels = torch.load(os.path.join(load_dir, "train_concept_labels.pt"))
+        val_concept_features = torch.load(os.path.join(load_dir, "val_concept_features.pt"))
+        val_concept_labels = torch.load(os.path.join(load_dir, "val_concept_labels.pt"))
+        normalization_layer = NormalizationLayer.from_pretrained(load_dir, device=device)
+
+    # save normalized concept features
+    torch.save(train_concept_features, os.path.join(save_dir, "train_concept_features.pt"))
+    torch.save(train_concept_labels, os.path.join(save_dir, "train_concept_labels.pt"))
+    torch.save(val_concept_features, os.path.join(save_dir, "val_concept_features.pt"))
+    torch.save(val_concept_labels, os.path.join(save_dir, "val_concept_labels.pt"))
+
+    # save normalized concept features mean and std
+    normalization_layer.save_model(save_dir)
+    if filter is not None:
+        train_concept_features = train_concept_features[:, filter]
+        val_concept_features = val_concept_features[:, filter]
+    # Note: glm saga expects y to be on CPU
+    train_concept_dataset = IndexedTensorDataset(train_concept_features, train_concept_labels)
+    val_concept_dataset = TensorDataset(val_concept_features, val_concept_labels)
+    logger.info("Train concept dataset size: {}".format(len(train_concept_dataset)))
+    logger.info("Val concept dataset size: {}".format(len(val_concept_dataset)))
+
+    train_concept_loader = DataLoader(train_concept_dataset, batch_size=batch_size, shuffle=True)
+    val_concept_loader = DataLoader(val_concept_dataset, batch_size=batch_size, shuffle=False)
+    return train_concept_loader, val_concept_loader, normalization_layer
+
+
+'''---------------------------------------------------------------------------------'''
+'''
+             LOSS FUNCTION UTILS
+'''
+'''---------------------------------------------------------------------------------'''
+
+nINF = -100
+
+class TwoWayLoss(torch.nn.Module):
+    def __init__(self, Tp=4., Tn=1.):
+        super(TwoWayLoss, self).__init__()
+        self.Tp = Tp
+        self.Tn = Tn
+
+        logger.info(f"Initializing TwoWayLoss with Tp: {Tp} and Tn: {Tn}")
+
+    def forward(self, x, y):
+        class_mask = (y > 0).any(dim=0)
+        sample_mask = (y > 0).any(dim=1)
+
+        # Calculate hard positive/negative logits
+        pmask = y.masked_fill(y <= 0, nINF).masked_fill(y > 0, float(0.0))
+        plogit_class = torch.logsumexp(-x/self.Tp + pmask, dim=0).mul(self.Tp)[class_mask]
+        plogit_sample = torch.logsumexp(-x/self.Tp + pmask, dim=1).mul(self.Tp)[sample_mask]
+    
+        nmask = y.masked_fill(y != 0, nINF).masked_fill(y == 0, float(0.0))
+        nlogit_class = torch.logsumexp(x/self.Tn + nmask, dim=0).mul(self.Tn)[class_mask]
+        nlogit_sample = torch.logsumexp(x/self.Tn + nmask, dim=1).mul(self.Tn)[sample_mask]
+
+        return torch.nn.functional.softplus(nlogit_class + plogit_class).mean() + \
+                torch.nn.functional.softplus(nlogit_sample + plogit_sample).mean()
+
+
+def get_loss(type: str, num_concepts: int, num_samples:int, concept_counts, cbl_pos_weight:float, cbl_auto_weight: bool=False, tp: float = 4.,device="cuda"):
+    if type == "bce":
+        logger.info("Using BCE Loss for training CBL...")
+        if cbl_auto_weight:
+            logger.info(f"Using automatic weighting for positive examples with scale {cbl_pos_weight}")
+            pos_count = torch.tensor(concept_counts).to(device)
+            neg_count = num_samples - pos_count
+            scale = (neg_count / pos_count) * cbl_pos_weight
+            logger.info(f"scale mean: {scale.mean()}, scale std: {scale.std()}")
+            logger.info(f"scale min: {scale.min()}, scale max: {scale.max()}")
+            loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=scale).to(device)
+        else:
+            logger.info("Using fixed weighting for positive examples")
+            loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([cbl_pos_weight] * num_concepts)).to(device)
+    elif type == "twoway":
+        logger.info("Using TwoWay Loss for training CBL...")
+        loss_fn = TwoWayLoss(Tp=tp)
+    else:
+        raise NotImplementedError(f"Loss {type} is not implemented")
+    
+
+    return loss_fn
+
+'''---------------------------------------------------------------------------------'''
+'''
+             TRAIN UTILS
+'''
+'''---------------------------------------------------------------------------------'''
+
+def validate_cbl(
+    backbone: Backbone,
+    cbl: ConceptLayer,
+    val_loader: DataLoader,
+    loss_fn: torch.nn.Module,
+    device: str = "cuda",
+    args = None,
+):
+    val_loss = 0.0
+    with torch.no_grad():
+        logger.info("Running CBL validation")
+        for features, concept_one_hot, _ in tqdm(val_loader):
+            features = features.to(device)
+            concept_one_hot = concept_one_hot.to(device)
+
+            # forward pass
+            concept_logits = cbl(backbone(features))
+
+            # calculate loss
+            batch_loss = loss_fn(concept_logits, concept_one_hot)
+            val_loss += batch_loss.item()
+            if args.mock:
+                break
+        # finalize metrics and update model
+        val_loss = val_loss / len(val_loader)
+
+    return val_loss
+
+def train_cbl(
+    backbone: Backbone,
+    cbl: ConceptLayer,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    epochs: int,
+    loss_fn: torch.nn.Module,
+    lr: float = 1e-3,
+    weight_decay: float = 1e-5,
+    concepts = None,    # List[str]
+    tb_writer=None,
+    device: str = "cuda",
+    finetune: bool = False,
+    optimizer: str = "sgd",
+    scheduler: str = None,
+    backbone_lr: float = 1e-3,
+    data_parallel=False,
+    args = None,
+):
+    # setup optimizer
+    if optimizer == "sgd":
+        optimizer = torch.optim.SGD(
+            cbl.parameters(), lr=lr, weight_decay=weight_decay, momentum=0.9
+        )
+    elif optimizer == "adam":
+        optimizer = torch.optim.Adam(cbl.parameters(), lr=lr, weight_decay=weight_decay)
+    else:
+        raise ValueError
+    if finetune:
+        optimizer.add_param_group({"params": backbone.parameters(), "lr": backbone_lr})
+
+    # setup schedular
+    if scheduler == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    best_val_loss = float("inf")
+    best_val_loss_epoch = None
+    best_model_state = None
+    if data_parallel:
+        backbone = torch.nn.DataParallel(backbone)
+        cbl = torch.nn.DataParallel(cbl)
+    for epoch in range(epochs):
+        train_loss = 0
+        lr = optimizer.param_groups[0]["lr"]
+
+        logger.info(f"Running CBL training for Epoch: {epoch}")
+        its = tqdm(total=len(train_loader), position=0, leave=True)
+        for batch_idx, (features, concept_one_hot, _) in enumerate(train_loader):
+            features = features.to(device)  # (batch_size, feature_dim)
+            concept_one_hot = concept_one_hot.to(device)  # (batch_size, n_concepts)
+
+            # forward pass
+            if finetune:
+                backbone.train()
+                embeddings = backbone(features)
+            else:
+                with torch.no_grad():
+                    embeddings = backbone(features)  # (batch_size, feature_dim)
+            concept_logits = cbl(embeddings)  # (batch_size, n_concepts)
+
+            # calculate loss
+            batch_loss = loss_fn(concept_logits, concept_one_hot)
+            train_loss += batch_loss.item()
+
+            # backprop
+            optimizer.zero_grad()
+            batch_loss.backward()
+            optimizer.step()
+            if args.wandb:
+                wandb.log({"train-loss": batch_loss.item()})
+            # print batch stats
+            if (batch_idx + 1) % 1000 == 0:
+                its.update(1000)
+                print(
+                    "Epoch: {} | Batch: {} | Loss: {:.6f}".format(
+                        epoch, batch_idx, batch_loss.item()
+                    )
+                )
+
+                # exit if loss is nan
+                if torch.isnan(batch_loss):
+                    # Exit process if loss is nan
+                    logger.error(f"Loss is nan at epoch {epoch} and batch {batch_idx}")
+                    sys.exit(1)
+            if args.mock:
+                break
+        backbone.eval()
+        # finalize metrics and update model
+        its.close()
+        train_loss = train_loss / len(train_loader)
+        # train_per_concept_roc = train_per_concept_roc.compute()
+
+        # evaluate on validation set
+        logger.info(f"Running CBL validation for Epoch: {epoch}")
+        val_loss = validate_cbl(
+            backbone,
+            cbl.module if data_parallel else cbl,
+            val_loader,
+            loss_fn=loss_fn,
+            device=device,
+            args=args,
+        )
+        if val_loss < best_val_loss:
+            logger.info(f"Updating best val loss at epoch: {epoch}")
+            best_val_loss = val_loss
+            best_val_loss_epoch = epoch
+            best_backbone_state = backbone.state_dict()
+            best_model_state = cbl.state_dict()
+        if args.wandb:
+                wandb.log({"val-loss": val_loss})
+        # write to tensorboard
+        if tb_writer is not None:
+            tb_writer.add_scalar("Loss/train", train_loss, epoch)
+            tb_writer.add_scalar("Loss/val", val_loss, epoch)
+            tb_writer.add_scalar("lr", lr, epoch)
+
+        # print epoch stats
+        logger.info(
+            f"Epoch: {epoch} | Train loss: {train_loss:.6f} | Val loss: {val_loss:.6f}"
+        )
+
+        # Step the scheduler
+        if scheduler is not None:
+            scheduler.step(val_loss)
+        
+        if args.mock:
+            break
+
+    # return best model based on validation loss
+    logger.info(f"Best val loss: {best_val_loss:.6f} at epoch {best_val_loss_epoch}")
+    cbl.load_state_dict(best_model_state)
+    backbone.load_state_dict(best_backbone_state)
+    if data_parallel:
+        cbl = cbl.module
+        backbone = backbone.module
+    return cbl, backbone
+
+def test_model(
+    loader: DataLoader,
+    backbone: Backbone,
+    cbl: ConceptLayer,
+    normalization: NormalizationLayer,
+    final_layer: FinalLayer,
+    device: str = "cuda",
+    args = None,
+):
+    acc_mean = 0.0
+    for features, concept_one_hot, targets in tqdm(loader):
+        features = features.to(device)
+        concept_one_hot = concept_one_hot.to(device)
+        targets = targets.to(device)
+
+        # forward pass
+        with torch.no_grad():
+            embeddings = backbone(features)
+            concept_logits = cbl(embeddings)
+            concept_probs = normalization(concept_logits)
+            logits = final_layer(concept_probs)
+            if args.mock:
+                break
+
+        # calculate accuracy
+        preds = logits.argmax(dim=1)
+        accuracy = (preds == targets).sum().item()
+        acc_mean += accuracy
+
+    return acc_mean / len(loader.dataset)
+
+def train_sparse_final(
+    linear,
+    indexed_train_loader,
+    val_loader,
+    n_iters,
+    lam,
+    step_size=0.1,
+    device="cuda",
+):
+    # zero initialize
+    num_classes = linear.weight.shape[0]
+    linear.weight.data.zero_()
+    linear.bias.data.zero_()
+
+    ALPHA = 0.99
+    metadata = {}
+    metadata["max_reg"] = {}
+    metadata["max_reg"]["nongrouped"] = lam
+
+    # Solve the GLM path
+    output_proj = glm_saga(
+        linear,
+        indexed_train_loader,
+        step_size,
+        n_iters,
+        ALPHA,
+        epsilon=1,
+        k=1,
+        val_loader=val_loader,
+        do_zero=False,
+        metadata=metadata,
+        n_ex=len(indexed_train_loader.dataset),
+        n_classes=num_classes,
+        verbose=True,
+    )
+
+    return output_proj
+
+def per_class_accuracy(
+    model: torch.nn.Module, loader: DataLoader, classes, device: str = "cuda"
+): #Classes: List[str], output -> Dict[str, float]
+    correct = torch.zeros(len(classes)).to(device)
+    total = torch.zeros(len(classes)).to(device)
+
+    model = model.to(device)
+    model.eval()
+    with torch.no_grad():
+        for features, _, targets in tqdm(loader):
+            features = features.to(device)
+            targets = targets.to(device)
+            logits = model(features)
+            preds = logits.argmax(dim=1)
+            for pred, target in zip(preds, targets):
+                total[target] += 1
+                if pred == target:
+                    correct[target] += 1
+
+    per_class_accuracy = correct / total
+    total_accuracy = correct.sum() / total.sum()
+    total_datapoints = total.sum()
+
+    # return a dictionary of class names and accuracies, and total accuracy
+    return {
+        "Per class accuracy": {
+            classes[i]: f"{per_class_accuracy[i]*100.0:.2f}"
+            for i in range(len(classes))
+        },
+        "Overall accuracy": f"{total_accuracy*100.0:.2f}",
+        "Datapoints": f"{total_datapoints}",
+    }

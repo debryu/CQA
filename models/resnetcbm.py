@@ -21,13 +21,13 @@ def get_backbone_function(model, x):
     return model.features(x)
 
 class _Model(torch.nn.Module):
-    def __init__(self, args, device="cuda"): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
+    def __init__(self, args): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
         super().__init__()
         self.backbone = PretrainedResNetModel(args)
         # Load the backbone
         self.backbone.load_state_dict(torch.load(os.path.join(args.load_dir, f'{args.dataset}_{args.model}.pth')))
         self.args = args
-        self.args.batch_size = 64
+        self.args.batch_size = args.batch_size
         
     def forward(self, x):
         concepts = self.backbone(x) 
