@@ -14,6 +14,7 @@ from utils.llamaoracle_utils import query_llama
 from models.training.resnetcbm import train as train_cbm
 
 def create_or_load_oracle_ds(args):
+    ds = args.dataset.split("_")[0]
     start = args.start_idx
     end = args.end_idx
     # Train
@@ -28,8 +29,12 @@ def create_or_load_oracle_ds(args):
         with open(path, 'r') as f:
             concepts = f.read().split("\n")
         queries = []
-        for c in concepts:
-            queries.append(f"a person with {c}")
+        if ds == "celeba":
+            for c in concepts:
+                queries.append(f"a person with {c}")
+        if ds == "shapes3d":
+            for c in concepts:
+                queries.append(f"a {c}")
         print(queries)
         t = transforms.Compose([
         transforms.Lambda(lambda x: np.array(x))  # Ensure it's a NumPy array
@@ -92,7 +97,7 @@ def train(args):
     ds = args.dataset.split('_')[0]
     # Due to time consuming task of labeling with llama, make by default to use the mini version of the dataset
     # The number of samples can still be changed with arguments start_idx and end_idx
-    args.dataset = ds+"_mini"
+    args.dataset = f"{ds}_mini"
     llama_concepts = create_or_load_oracle_ds(args)
     args.num_c = llama_concepts['train'].shape[1]
     
