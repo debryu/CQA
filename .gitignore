@@ -11,6 +11,9 @@ models/VLG/saved_models
 models/LFCBM/saved_models
 models/LABO/saved_models
 
+# Wandb
+wandb/
+
 # Distribution / packaging
 .Python
 build/

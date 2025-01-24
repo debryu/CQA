@@ -9,6 +9,16 @@ The name needs to be as follows: parse_<model_name>_args(parser, args)
 e.g. "def parse_lfcbm_args(parser, args)"
 
 '''
+# TODO: Move all glm args to a separate file
+# Which also mean to change the name of the variables in the different training models
+
+def parse_glm_args(parser, args):
+  parser.add_argument("-glm_alpha", type=float, default=0.99, help="Alpha parameter for glm_saga")
+  parser.add_argument("-glm_step_size", type=float, default=0.1, help="Step size for glm_saga")
+  parser.add_argument("-n_iters", type=int, default=2000, help="How many iterations to run the final layer solver for")
+  parser.add_argument("-lam", type=float, default=0.0007, help="Sparsity regularization parameter, higher->more sparse")
+  
+  return parser
 
 def parse_lfcbm_args(parser, args):
   model = args.model
@@ -31,7 +41,7 @@ def parse_lfcbm_args(parser, args):
   parser.add_argument("-lam", type=float, default=0.0007, help="Sparsity regularization parameter, higher->more sparse")
   parser.add_argument("-n_iters", type=int, default=1000, help="How many iterations to run the final layer solver for")
   parser.add_argument("-print", action='store_true', help="Print all concepts being deleted in this stage")
-  
+  parse_glm_args(parser, args)
   return parser
 
 def parse_labo_args(parser, args):
@@ -55,6 +65,7 @@ def parse_labo_args(parser, args):
     parser.add_argument("-lam", type=float, default=0.0007, help="Sparsity regularization parameter, higher->more sparse")
     parser.add_argument("-n_iters", type=int, default=1000, help="How many iterations to run the final layer solver for")
     parser.add_argument("-print", action='store_true', help="Print all concepts being deleted in this stage")
+    parse_glm_args(parser, args)
     return parser
 
 def parse_vlgcbm_args(parser, args):
@@ -121,6 +132,7 @@ def parse_resnetcbm_args(parser, args):
   parser.add_argument("-patience", type=int, default=10, help="Patience for early stopping")
   parser.add_argument("-dropout_prob", type=float, default=0.01, help="Dropout probability")
   parser.add_argument("-val_interval", type=int, default=1, help="Validation interval, every n epochs do validation")
+  parse_glm_args(parser, args)
   return parser
 
 def parse_llamaoracle_args(parser,args):
@@ -146,4 +158,5 @@ def parse_llamaoracle_args(parser,args):
   parser.add_argument("-patience", type=int, default=10, help="Patience for early stopping")
   parser.add_argument("-dropout_prob", type=float, default=0.01, help="Dropout probability")
   parser.add_argument("-val_interval", type=int, default=1, help="Validation interval, every n epochs do validation")
+  parse_glm_args(parser, args)
   return parser

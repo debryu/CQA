@@ -4,7 +4,7 @@ import torch
 from torchvision import transforms
 import matplotlib.pyplot as plt
 import numpy as np
-
+import wandb 
 def get_resnet_imagenet_preprocess():
     target_mean = [0.485, 0.456, 0.406]
     target_std = [0.229, 0.224, 0.225]
@@ -65,3 +65,16 @@ def one_hot_concepts(concepts):
                 one_hots.append(diag_matrix[i])
     one_hots = np.stack(one_hots)
     return one_hots
+
+def log_train(epoch, args, train_loss = None, val_loss = None, dict = None):
+  logs = {"epoch":epoch}
+  
+  if args.wandb:
+    if train_loss is not None:
+      logs["train_loss"] = train_loss
+    if val_loss is not None:
+      logs["val_loss"] = val_loss
+    if dict is not None:
+      logs.update(dict)
+  logger.info(f"Train Loss: {train_loss}, Val Loss: {val_loss}")
+  wandb.log(logs)

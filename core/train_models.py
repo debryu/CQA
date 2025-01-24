@@ -16,7 +16,8 @@ def run(args):
     if args.wandb:
         wand_run = wandb.init(
             # Set the project where this run will be logged
-            project=folder_name,
+            project="Concept Quality Analysis",
+            name=folder_name,
             # Track hyperparameters and run metadata
             config=args
         )

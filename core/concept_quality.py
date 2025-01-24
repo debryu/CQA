@@ -45,7 +45,8 @@ class CONCEPT_QUALITY():
   def get_classification_report(self):
     y_true = self.output['labels_gt'] 
     y_pred = self.output['labels_pred'].argmax(axis=1)
-    target_names = LABELS[self.model.args.dataset]
+    ds_name = self.model.args.dataset.split('_')[0]
+    target_names = LABELS[ds_name]
     self.classification_report = cr(y_true, y_pred, target_names=target_names, output_dict=True)
     self.save()
     return self.classification_report
