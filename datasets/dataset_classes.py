@@ -12,7 +12,7 @@ from datasets.utils import create_dataset
 '''
 '''-------------------------------------------------------------------------'''
 
-class Cifar10Custom(CIFAR10):
+class Cifar10Custom(Dataset):
     name = "cifar10"
     def __init__(
         self,
@@ -22,20 +22,30 @@ class Cifar10Custom(CIFAR10):
         transform = None,
         target_transform = None,
         download: bool = True,
+        train_val_split = 0.9,
     ) -> None:
-      '''
-      '''
-      self.has_concepts = False
-      self.classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-      if split == 'train':
-        train = True
-      else:
-        train = False
-      
-      super().__init__(root=root,train=train,transform=transform,target_transform=target_transform,download=download)
-      
+        '''
+        '''
+        self.has_concepts = False
+        self.classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+        if split == 'train':
+            if split == 'train':
+                self.data = CIFAR10(root=root,train=True,transform=transform,target_transform=target_transform,download=download)
+                self.data = Subset(self.data,range(int(len(self.data)*train_val_split)))
+                
+            elif split == 'val' or split == 'valid':
+                self.data = CIFAR10(root=root,train=True,transform=transform,target_transform=target_transform,download=download)
+                self.data = Subset(self.data,range(int(len(self.data)*train_val_split),len(self.data)))
+            else:
+                raise ValueError(f"Split {split} not recognized")
+        else:
+            self.data = CIFAR10(root=root,train=False,transform=transform,target_transform=target_transform,download=download)
+        
+    def __len__(self):
+        return len(self.data)
+
     def __getitem__(self, index: int):
-        x, y = super().__getitem__(index)
+        x, y = self.data[index]
         return x, -1, y
 
 

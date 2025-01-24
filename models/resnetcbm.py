@@ -25,7 +25,7 @@ class _Model(torch.nn.Module):
         super().__init__()
         self.backbone = PretrainedResNetModel(args)
         # Load the backbone
-        self.backbone.load_state_dict(torch.load(os.path.join(args.load_dir, f'{args.dataset}_{args.model}.pth')))
+        self.backbone.load_state_dict(torch.load(os.path.join(args.load_dir, f'best_{args.model}.pth')))
         self.args = args
         
     def forward(self, x):

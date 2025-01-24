@@ -1,6 +1,7 @@
 SAVED_MODELS_FOLDER = {  
   "vlgcbm":"./saved_models/",
   "lfcbm":"./saved_models/",
+  "labo":"./saved_models/",
   "resnetcbm":"./saved_models/",
   "llamaoracle":"./saved_models/",
   #"lfcbm":"./models/LFC/saved_models/",
@@ -26,6 +27,8 @@ LLM_GENERATED_ANNOTATIONS = "./data/llama_annotations"
 
 LABELS = {
   "celeba": ['male', 'female'],
+  "cifar10": ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck'],
+  "shapes3d": ['red pill', 'not a red pill'],
 }
 
 def folder_naming_convention(args):

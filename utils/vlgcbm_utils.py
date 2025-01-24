@@ -169,7 +169,7 @@ def get_filtered_concepts_and_counts(
     raw_concepts_count = torch.zeros(len(raw_concepts))
     for data in tqdm(dataloader):
         raw_concepts_count += data[1].sum(dim=0)
-
+        
     # remove concepts that are not present in the dataset
     raw_concepts_count = raw_concepts_count.numpy()
     concepts = [concept for concept, count in zip(raw_concepts, raw_concepts_count) if count > 0]
@@ -555,7 +555,7 @@ class ConceptDataset(Dataset):
 
     def _find_in_list(self, concept: str, bbxs):
         # randomly pick a bounding box
-        matched_bbxs = [bbx for bbx in bbxs if concept == bbx["label"]]
+        matched_bbxs = [bbx for bbx in bbxs if concept == bbx["label"].replace(" ", "")]
         return len(matched_bbxs) > 0, matched_bbxs
 
     def _get_data(self, idx):

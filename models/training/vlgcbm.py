@@ -208,9 +208,11 @@ def train(args):
     final_layer.load_state_dict({"weight": W_g, "bias": b_g})
     final_layer.save_model(args.save_dir)
 
+    '''
     ##############################################
     #### Test the model on test set ####
     ##############################################
+    
     test_accuracy = test_model(
         test_cbl_loader, backbone, cbl, normalization_layer, final_layer, args.device, args=args
     )
@@ -242,4 +244,5 @@ def train(args):
             "Percentage non-zero": nnz / total,
         }
         json.dump(out_dict, f, indent=2)
+    '''
     return args

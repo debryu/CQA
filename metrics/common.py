@@ -1,5 +1,6 @@
 from sklearn.metrics import classification_report
 from loguru import logger
+from config import CONCEPT_SETS
 from utils.utils import get_concept_names
 '''
 Current output:
@@ -12,7 +13,8 @@ out_dict = {
       }
 '''
 
-def get_conceptWise_metrics(output, theshold=0.0):
+def get_conceptWise_metrics(output, args, theshold=0.0):
+    ds = args.dataset.split("_")[0]
     concept_preds = output['concepts_pred']
     concept_gt = output['concepts_gt']
     # Should be already on cpu but just in case
@@ -28,7 +30,7 @@ def get_conceptWise_metrics(output, theshold=0.0):
 
     accuracy = (concept_pred == concept_gt).sum(dim=0) / concept_gt.shape[0]
     print(accuracy)
-    concept_names = get_concept_names("./data/concepts/celeba/handmade.txt")
+    concept_names = get_concept_names(CONCEPT_SETS[ds])
     concept_pred_list = []
     concept_gt_list = []
     for i in range(concept_gt.shape[1]):

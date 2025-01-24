@@ -1,15 +1,15 @@
 from metrics.dci import DCI_wrapper
-#from utils.save_importance_matrix import save_IM_as_img
+from utils.dci_utils import save_IM_as_img
 import pickle
 import os
 import json
-from config import SAVED_MODELS_FOLDER
-from utils.args_utils import load_args
 #from utils.utils import compute_concept_frequencies
 from models import get_model
 from loguru import logger
 from sklearn.metrics import classification_report as cr
 from metrics.common import get_conceptWise_metrics
+from config import LABELS
+from utils.args_utils import load_args
 
 # TODO: Fix TEMP and add the correct target names
 # TODO: Count Imbalances for each ds once
@@ -45,9 +45,7 @@ class CONCEPT_QUALITY():
   def get_classification_report(self):
     y_true = self.output['labels_gt'] 
     y_pred = self.output['labels_pred'].argmax(axis=1)
-    print(y_true[0:10])
-    print(y_pred[0:10])
-    target_names = [0,1]  #TEMP
+    target_names = LABELS[self.model.args.dataset]
     self.classification_report = cr(y_true, y_pred, target_names=target_names, output_dict=True)
     self.save()
     return self.classification_report
@@ -77,11 +75,11 @@ class CONCEPT_QUALITY():
     self.dci = dci
     self.save()
     return dci
-'''
+
   def save_im_as_img(self, path,file_name, plot_title):
     save_IM_as_img(path, file_name, plot_title, self.dci['importance_matrix'])
     return 
-'''
+
 def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False):
   logger.debug(f"Initializing CQA from {folder_path}")
   # Check if CQA (Concept Quality Analysis) is already present
@@ -105,6 +103,5 @@ def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False
     # Run the model to get all the outputs
     CQA.store_output(split)
     CQA.save()
-    
     
   return CQA

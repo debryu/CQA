@@ -39,10 +39,11 @@ def query_llama(dl, queries):
             if llama_response.startswith("y"):
                 c_array.append(1)
             else:
-                c_array.append(1)
+                c_array.append(0)
             text += "\n" + response["message"]['content']
             chat.append(text)
         c_array = torch.tensor(c_array)
+        print(c_array)
         c_tensors.append(c_array)
         output.append(chat)
     

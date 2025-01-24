@@ -1,27 +1,31 @@
-import torch.nn as nn
 import torch
+from torch.utils.data import Dataset, DataLoader
 from models.base import BaseModel
 import os 
 import json
 from loguru import logger
-from tqdm import tqdm
-from utils.lfcbm_utils import get_target_model
-from utils.args_utils import load_args
 import torchvision.transforms as transforms
 from functools import partial
-
-
-# TODO: 
-# 1. Remove args loading since it is already loaded in concept_quality.py
+from tqdm import tqdm
+from datasets import get_dataset
+from utils.lfcbm_utils import get_target_model, save_activations, get_save_names
+from utils.args_utils import load_args
+from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+from PIL import Image
+try:
+    from torchvision.transforms import InterpolationMode
+    BICUBIC = InterpolationMode.BICUBIC
+except ImportError:
+    BICUBIC = Image.BICUBIC
 
 def get_backbone_function(model, x):
     return model.features(x)
 
 class _Model(torch.nn.Module):
-    def __init__(self, backbone_name, W_c, W_g, b_g, proj_mean, proj_std, args, device="cuda"): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
+    def __init__(self, backbone_name, clip_features, W_g, b_g, args, device="cuda"): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
         super().__init__()
-        self.args = load_args(args)
         model, _ = get_target_model(backbone_name, device)
+        self.args = args
         #remove final fully connected layer
         if "clip" in backbone_name:
             self.backbone = model
@@ -29,25 +33,16 @@ class _Model(torch.nn.Module):
             self.backbone = partial(get_backbone_function, model)
         else:
             self.backbone = torch.nn.Sequential(*list(model.children())[:-1])
-            
-        self.proj_layer = torch.nn.Linear(in_features=W_c.shape[1], out_features=W_c.shape[0], bias=False).to(device)
-        self.proj_layer.load_state_dict({"weight":W_c})
-            
-        self.proj_mean = proj_mean
-        self.proj_std = proj_std
-        
+        self.clip_features = clip_features.to(device)
         self.final = torch.nn.Linear(in_features = W_g.shape[1], out_features=W_g.shape[0]).to(device)
         self.final.load_state_dict({"weight":W_g, "bias":b_g})
         self.concepts = None
         
     def forward(self, x):
-        x = self.backbone(x)
-        x = torch.flatten(x, 1)
-        x = self.proj_layer(x)
-        concepts = x
-        proj_c = (x-self.proj_mean)/self.proj_std
-        x = self.final(proj_c)
-        out_dict = {'unnormalized_concepts':concepts, 'concepts':proj_c, 'preds':x}
+        concepts = self.clip_features[x]
+        proj_c = concepts   # Temp
+        y = self.final(proj_c)
+        out_dict = {'unnormalized_concepts':concepts, 'concepts':proj_c, 'preds':y}
         return out_dict
 
     def get_loss(self, args):
@@ -68,27 +63,73 @@ class LABO(BaseModel):
         #lfcbm_saved_path = self.saved_models[args.model]
         #args.load_dir = os.path.join(lfcbm_saved_path,args.load_dir)
         self.load_dir = args.load_dir
-
-        ''' LOAD CBM '''
-        with open(os.path.join(self.load_dir ,"args.txt"), 'r') as f:
-            self.args = json.load(f)
-
+        self.args = args
         logger.debug(f"{self.args}")
+        # Save test clip activations
+        #save activations and get save_paths
+        ds_test = f"{args.dataset}_test"
+        save_activations(clip_name = args.clip_name, target_name = args.backbone, 
+                               target_layers = [args.feature_layer], d_probe = ds_test,
+                               concept_set = args.concept_set, batch_size = args.batch_size, 
+                               device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
+        
+        target_save_name, clip_save_name, text_save_name = get_save_names(args.clip_name, args.backbone, 
+                                            args.feature_layer,ds_test, args.concept_set, "avg", args.activation_dir)
 
-        W_c = torch.load(os.path.join(self.load_dir ,"W_c.pt"), map_location=self.args['device'])
-        W_g = torch.load(os.path.join(self.load_dir, "W_g.pt"), map_location=self.args['device'])
-        b_g = torch.load(os.path.join(self.load_dir, "b_g.pt"), map_location=self.args['device'])
+        #load features
+        with torch.no_grad():
+            target_features = torch.load(target_save_name, map_location="cpu", weights_only=True).float()
+            image_features = torch.load(clip_save_name, map_location="cpu", weights_only=True).float()
+            #image_features /= torch.norm(image_features, dim=1, keepdim=True)
+            text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()
+            #text_features /= torch.norm(text_features, dim=1, keepdim=True)
+            
+            clip_features = image_features @ text_features.T            # Namely, P
+            del image_features, text_features
 
-        proj_mean = torch.load(os.path.join(self.load_dir, "proj_mean.pt"), map_location=self.args['device'])
-        proj_std = torch.load(os.path.join(self.load_dir, "proj_std.pt"), map_location=self.args['device'])
+        W_g = torch.load(os.path.join(self.load_dir, "W_g.pt"), map_location=self.args.device, weights_only=True)
+        b_g = torch.load(os.path.join(self.load_dir, "b_g.pt"), map_location=self.args.device, weights_only=True)
+        self.model = _Model(args.backbone, clip_features, W_g, b_g, args, args.device)
+        
 
-        self.model = _Model(self.args['backbone'], W_c, W_g, b_g, proj_mean, proj_std, args, self.args['device'])
-        self.args = self.model.args
+    def get_loader(self, split='test'):
+        transform = self.get_transform()
+        dataset_name = self.args.dataset
+        data = get_dataset(dataset_name, split = split, transform = transform)
 
-    def train(self, loader):
-        pass
+        class IndexedDataset(Dataset):
+            def __init__(self, data):
+                """
+                Args:
+                    data: A list, tensor, or any iterable of data samples.
+                """
+                self.data = data
+
+            def __len__(self):
+                return len(self.data)
+
+            def __getitem__(self, idx):
+                """
+                Args:
+                    idx: Index of the data sample.
+                Returns:
+                    A tuple of (sample, idx).
+                """
+                img, c, label = self.data[idx]
+                # Return the index of the image instead of the image
+                # in this way, the model just looks at the CLIP features[idx]
+                return idx, c, label
+        indexed_data = IndexedDataset(data)
+        return DataLoader(indexed_data, batch_size = self.args.batch_size, shuffle = False)
+
 
     def get_transform(self):
+        c = Compose([
+                Resize((224,224), interpolation=BICUBIC),
+                CenterCrop((224,224)),
+                ToTensor(),
+                Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+            ])
         t = transforms.Compose(
                 [
                     transforms.ToTensor(),
@@ -97,23 +138,4 @@ class LABO(BaseModel):
             )
         return t
 
-    def test(self, loader):
-        acc_mean = 0.0
-        device = self.args.device
-        for features, concept_one_hot, targets in tqdm(loader):
-            features = features.to(device)
-            concept_one_hot = concept_one_hot.to(device)
-            targets = targets.to(device)
-
-            # forward pass
-            with torch.no_grad():
-                out_dict = self.model(features)
-                logits = out_dict['preds']
-
-            # calculate accuracy
-            preds = logits.argmax(dim=1)
-            accuracy = (preds == targets).sum().item()
-            acc_mean += accuracy
-
-        return acc_mean / len(loader.dataset)
 

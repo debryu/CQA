@@ -1,9 +1,10 @@
-from config import SAVED_MODELS_FOLDER
 from torch.utils.data import DataLoader
-from datasets import get_dataset
 from tqdm import tqdm
 import torch
+from loguru import logger
 
+from config import SAVED_MODELS_FOLDER
+from datasets import get_dataset
 class BaseModel():
     def __init__(self,*args):
       self.saved_models = SAVED_MODELS_FOLDER
@@ -15,6 +16,7 @@ class BaseModel():
       pass
 
     def get_loader(self, split = 'test'):
+      logger.debug(f"Using default method get_loader for {split}")
       transform = self.get_transform()
       dataset_name = self.args.dataset
       data = get_dataset(dataset_name, split = split, transform = transform)
@@ -45,8 +47,9 @@ class BaseModel():
       concepts = []
       labels = []
       preds = []
-      acc_mean = 0.0
+      acc_mean = 0
       debug_i = 0
+      n = 0
       for features, concepts_one_hot, targets in tqdm(loader):
         features = features.to(device)
         concepts_one_hot = concepts_one_hot.to(device)
@@ -70,6 +73,7 @@ class BaseModel():
         y_preds = logits.argmax(dim=1)
         accuracy = (y_preds == targets).sum().item()
         acc_mean += accuracy
+        n += len(targets)
         #if debug_i > 5:
         #  break
         debug_i += 1

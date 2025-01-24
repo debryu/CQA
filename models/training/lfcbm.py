@@ -44,6 +44,7 @@ def train(args):
     d_val = args.dataset + "_val"
 
     #save activations and get save_paths
+    logger.debug(f"Saving activations for {args.clip_name} on {args.backbone} backbone")
     for d_probe in [d_train, d_val]:
         save_activations(clip_name = args.clip_name, target_name = args.backbone, 
                                target_layers = [args.feature_layer], d_probe = d_probe,
@@ -55,6 +56,9 @@ def train(args):
     val_target_save_name, val_clip_save_name, text_save_name =  get_save_names(args.clip_name, args.backbone,
                                             args.feature_layer, d_val, args.concept_set, "avg", args.activation_dir)
     
+    logger.debug(f"Target save name: {target_save_name}")
+    logger.debug(f"Clip save name: {clip_save_name}")
+    logger.debug(f"Text save name: {text_save_name}")
     #load features
     with torch.no_grad():
         target_features = torch.load(target_save_name, map_location="cpu", weights_only=True).float()
@@ -175,7 +179,7 @@ def train(args):
     #print(interpretable)
     #print(len(interpretable))
     W_c = proj_layer.weight[interpretable]
-    logger.info(f'Shape of the final layer {W_c.shape}')
+    logger.debug(f'Shape of the final layer {W_c.shape}')
    
     #print('W_c:', W_c.shape)
     proj_layer = torch.nn.Linear(in_features=W_c.shape[1], out_features=len(concepts), bias=False)
@@ -188,7 +192,7 @@ def train(args):
     with torch.no_grad():
         train_c = proj_layer(target_features.detach())
         val_c = proj_layer(val_target_features.detach())
-        
+
         train_mean = torch.mean(train_c, dim=0, keepdim=True)
         train_std = torch.std(train_c, dim=0, keepdim=True)
         
@@ -208,7 +212,6 @@ def train(args):
 
     indexed_train_loader = DataLoader(indexed_train_ds, batch_size=args.saga_batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.saga_batch_size, shuffle=False)
-
     # Make linear model and zero initialize
     n_concepts_final_layer = train_c.shape[1]
     logger.debug(f"N. of concepts in the final bottleneck: {n_concepts_final_layer}")
