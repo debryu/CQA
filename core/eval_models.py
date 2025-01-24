@@ -12,15 +12,23 @@ def eval_model(args):
         CQA = initialize_CQA(args.load_dir, args, split = 'test', force_from_scratch = args.force)
         if CQA.dci is None:
             logger.info("Computing DCI...")
-            CQA.DCI(0.8)
-            print(CQA.dci)
+            try:
+                CQA.DCI(0.8)
+                print(CQA.dci)
+            except:
+                logger.error("Error in computing DCI")
+
+            #CQA.metrics()
             #print(CQA.metrics())
-            #CQA.get_classification_report()
-            #print(CQA.classification_report)
+            CQA.get_classification_report()
+            print(CQA.classification_report)
             
             #print(CQA.output)
-
-            #CQA.save_im_as_img(base + fold, "importance_matrix", "Importance Matrix")
+        
+        # If no error occured in measuring disentanglement
+        if CQA.dci is not None:
+            print(CQA.dci)
+            CQA.save_im_as_img(args.load_dir, "importance_matrix", "Importance Matrix")
     except Exception as e:
         logger.error(f"Error in initializing CQA {args.load_dir}:\n{e}")
         logger.error(traceback.format_exc())

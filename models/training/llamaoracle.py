@@ -19,7 +19,7 @@ def create_or_load_oracle_ds(args):
     end = args.end_idx
     # Train
     if os.path.exists(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_train.pth")):
-        train_concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_train.pth"))
+        train_concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_train.pth"), weights_only=True)
     else:
         logger.info(f"{os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_train.pth")} not found!")
         logger.info(f"Querying train split")
@@ -46,7 +46,7 @@ def create_or_load_oracle_ds(args):
         torch.save(train_concepts, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_train.pth"))
     # Val
     if os.path.exists(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_val.pth")):
-        val_concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_val.pth"))
+        val_concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_val.pth"), weights_only=True)
     else:
         # load concepts 
         logger.info(f"Querying val split")
@@ -57,7 +57,7 @@ def create_or_load_oracle_ds(args):
         queries = []
         for c in concepts:
             queries.append(f"a person with {c}")
-        print(queries)
+        logger.debug(queries)
         t = transforms.Compose([
         transforms.Lambda(lambda x: np.array(x))  # Ensure it's a NumPy array
         ])
@@ -103,14 +103,24 @@ def train(args):
     
     # This will not persist, as it is created runtime
     class LlamaAnnotatedDataset(torch.utils.data.Dataset):
-        def __init__(args):
+        # Store some variables
+        temp_args = args
+        temp_ds = ds
+        def __init__(self,**kwargs):
+            self.ds_name = self.temp_ds + "_mini"
+            split = kwargs.get('split')
+            self.has_concepts = True
             super().__init__()
-            original_ds = get_dataset(args, subset_indices=[args.start_idx,args.end_idx])
-            assert len(original_ds)==len(llama_concepts)
+            self.original_ds = get_dataset(self.ds_name, subset_indices=[self.temp_args.start_idx,self.temp_args.end_idx],**kwargs)
+            
             if split == 'train':
                 self.llama_concepts = llama_concepts['train']
             elif split == 'val' or split == 'valid':
                 self.llama_concepts = llama_concepts['val']
+            assert len(self.original_ds)==len(self.llama_concepts)
+        
+        def __len__(self):
+            return len(self.original_ds)
         
         def __getitem__(self, index: int):
             x,c,y = self.original_ds[index]
@@ -119,11 +129,11 @@ def train(args):
 
     # Inject this dataset into the available datasets temporary
     logger.debug("Injecting dataset")
-    classes['llamatemp'] = LlamaAnnotatedDataset
     new_temp_args = copy.deepcopy(args)
-    new_temp_args.dataset = 'llamatemp'
+    new_temp_args.dataset = f'{args.dataset}_temp'
+    classes[new_temp_args.dataset] = LlamaAnnotatedDataset
     logger.debug(f"Available datasets: {classes}")
-    train_cbm(args)
+    train_cbm(new_temp_args)
     
     return args
 

@@ -8,5 +8,5 @@ def DCI_wrapper(representation_train,concept_train,representation_val,concept_va
   concept_val: torch.Tensor of shape (n_features, n_samples)
   '''
 
-  dci = _compute_dci(representation_train.T,concept_train.T,representation_val.T,concept_val.T)
+  dci = _compute_dci(representation_train.mT,concept_train.mT,representation_val.mT,concept_val.mT)
   return dci

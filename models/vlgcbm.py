@@ -8,7 +8,7 @@ from tqdm import tqdm
 import utils.clip as clip
 from utils.args_utils import load_args
 import torchvision.transforms as transforms
-from utils.vlgcbm_utils import get_target_model, Backbone, BackboneCLIP, ConceptLayer, NormalizationLayer, FinalLayer
+from utils.vlgcbm_utils import get_concept_dataloader, Backbone, BackboneCLIP, ConceptLayer, NormalizationLayer, FinalLayer
 from functools import partial
 
 class _Model(torch.nn.Module):
@@ -57,7 +57,7 @@ class VLGCBM(BaseModel):
     # load concepts set directly from load model
     with open(os.path.join(args.load_dir, "concepts.txt"), 'r') as f:
         concepts = f.read().split("\n")
-    
+
     # get model
     cbl = ConceptLayer.from_pretrained(args.load_dir, args.device)
     normalization_layer = NormalizationLayer.from_pretrained(args.load_dir, args.device)
@@ -67,7 +67,7 @@ class VLGCBM(BaseModel):
     # Update the args
     self.args = self.model.args
     self.args.batch_size = self.args.cbl_batch_size
-
+    
   def train(self, loader):
     pass
 

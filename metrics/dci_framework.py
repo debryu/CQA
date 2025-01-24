@@ -29,6 +29,8 @@ from sklearn import ensemble
 import pdb
 import torch
 from tqdm import tqdm 
+from loguru import logger
+
 def _compute_dci(x_train, ys_train, x_test, ys_test):
   """Computes score based on both training and testing codes and factors."""
   # Remove concepts that do not appear in the training set.
@@ -42,7 +44,7 @@ def _compute_dci(x_train, ys_train, x_test, ys_test):
         concepts.append(i)
   ys_train = ys_train[concepts]
   ys_test = ys_test[concepts]
-  print('Excluded concepts:', excluded_concepts,' due to not having a single occurence in the training set')
+  logger.debug('Excluded concepts:', excluded_concepts,' due to not having a single occurence in the training set')
   
 
   scores = {}
@@ -63,11 +65,10 @@ def compute_importance_gbt(x_train, y_train, x_test, y_test):
   """Compute importance based on gradient boosted trees."""
   num_factors = y_train.shape[0]
   num_codes = x_train.shape[0]
-  print(num_factors)
-  print(f'Factors: {num_factors}, Concepts: {num_codes}')
+  logger.info(f'Factors: {num_factors}, Concepts: {num_codes}')
   importance_matrix = np.zeros(shape=[num_codes, num_factors],
                                dtype=np.float64)
-  print('Size of importance matrix', importance_matrix.shape)
+  logger.debug(f'Size of importance matrix: {importance_matrix.shape}')
   train_loss = []
   test_loss = []
   for i in tqdm(range(num_factors), desc='Computing DCI'):
@@ -84,8 +85,8 @@ def disentanglement_per_code(importance_matrix):
   # importance_matrix is of shape [num_codes, num_factors].
   m = scipy.stats.entropy(importance_matrix.T + 1e-11,
                                   base=importance_matrix.shape[1])
-  print(m)
-  print(m.shape)
+  #print(m)
+  #print(m.shape)
   return 1. - scipy.stats.entropy(importance_matrix.T + 1e-11,
                                   base=importance_matrix.shape[1])
 

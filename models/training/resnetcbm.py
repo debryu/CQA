@@ -261,7 +261,7 @@ model_urls = {
 class PretrainedResNetModel(DeepLearningModel):
     def __init__(self, args, build=True):
         self.inplanes = 64
-        print(args)
+        logger.debug(args)
         super().__init__(args)
         self.dropout = args.dropout_prob
         
@@ -409,7 +409,7 @@ class PretrainedResNetModel(DeepLearningModel):
         # Public pretrained ResNet model
         N_layers = len(self.fc_layers)
         if N_layers > 1 or self.fc_layers[0] != 1000: # Check if it is default model
-            print('Loading pretrained ResNet')
+            logger.debug('Loading pretrained ResNet')
             incompatible, unexpected = self.load_state_dict(
                 model_zoo.load_url(model_urls[self.pretrained_model_name]), strict=False)
 
@@ -418,19 +418,19 @@ class PretrainedResNetModel(DeepLearningModel):
             assert all([x in expected_incompatible for x in incompatible])
             assert all([x in ['fc.weight', 'fc.bias'] for x in unexpected])
         else:
-            print('Loading pretrained ResNet')
+            logger.debug('Loading pretrained ResNet')
             self.load_state_dict(model_zoo.load_url(model_urls[self.pretrained_model_name]))
 
     def unfreeze_conv_layers(self, conv_layers_before_end_to_unfreeze):
         param_idx = 0
         all_conv_layers = []
         for name, param in self.named_parameters():
-            print("Param %i: %s" % (param_idx, name), param.data.shape)
+            logger.debug("Param %i: %s" % (param_idx, name), param.data.shape)
             param_idx += 1
             conv_layer_substring = get_conv_layer_substring(name)
             if conv_layer_substring is not None and conv_layer_substring not in all_conv_layers:
                 all_conv_layers.append(conv_layer_substring)
-        print("All conv layers", all_conv_layers)
+        logger.debug("All conv layers", all_conv_layers)
 
         # Now look conv_layers_before_end_to_unfreeze conv layers before the end, and unfreeze all layers after that.
         assert conv_layers_before_end_to_unfreeze <= len(all_conv_layers)
@@ -472,7 +472,7 @@ def get_conv_layer_substring(name):
 
 
 def train(args):
-    print('Resampling the dataset')
+    logger.debug('Resampling the dataset')
     t =transforms.Compose([
             transforms.ToTensor(),
             transforms.Resize((224,224)),
@@ -552,9 +552,9 @@ def train(args):
         
             if test_loss < best_loss:
                 best_loss = test_loss
-                torch.save(test.state_dict(), os.path.join(args.save_dir, f"{args.dataset}_{args.model}.pth"))
+                torch.save(test.state_dict(), os.path.join(args.save_dir, f"best_{args.model}.pth"))
                 patience = 0
-                print(f"Best model in epoch {e}")
+                logger.info(f"Best model in epoch {e}")
             if patience > args.patience:
                 break
             patience += 1

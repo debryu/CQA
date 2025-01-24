@@ -14,7 +14,6 @@ class LLAMAORACLE(BaseModel):
     def __init__(self, args):
         super().__init__(self, args)
         self.load_dir = args.load_dir
-        
         # Call the model
         self.model = ResNet_Model(args)
         
