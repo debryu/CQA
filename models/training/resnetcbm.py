@@ -10,13 +10,19 @@ import torch.optim as optim
 import torch.utils.model_zoo as model_zoo
 from torch.optim import lr_scheduler
 from torchvision.models.resnet import Bottleneck, BasicBlock
-from datasets import get_dataset
-from datasets.utils import compute_imbalance
 from torchvision import transforms
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
 from loguru import logger
+from torch.utils.data import DataLoader, TensorDataset
+from models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
+from utils.utils import log_train
+from utils.lfcbm_utils import get_targets_only
+from config import LABELS
+from datasets import get_dataset
+from datasets.utils import compute_imbalance
+from utils.resnetcbm_utils import get_activations_and_targets
 
 class DeepLearningModel(nn.Module):
     def __init__(self, args):
@@ -265,7 +271,7 @@ class PretrainedResNetModel(DeepLearningModel):
         super().__init__(args)
         self.dropout = args.dropout_prob
         
-        self.fc_layers = [1000,1000,args.num_c]
+        self.fc_layers = [1000,args.num_c]
         self.pretrained_path = None
         self.pretrained_model_name = args.backbone
         self.pretrained_exclude_vars = None
@@ -390,7 +396,7 @@ class PretrainedResNetModel(DeepLearningModel):
         if self.pretrained_path and len(self.pretrained_exclude_vars) > 0:
             print('[A] Loading our own pretrained model')
             own_state = self.state_dict()
-            pretrained_state = torch.load(self.pretrained_path)
+            pretrained_state = torch.load(self.pretrained_path, weights_only=True)
             for name, param in pretrained_state.items():
                 if any([name.startswith(var) for var in self.pretrained_exclude_vars]):
                     print('  Skipping %s' % name)
@@ -403,7 +409,7 @@ class PretrainedResNetModel(DeepLearningModel):
             return
         elif self.pretrained_path:
             print('[B] Loading our own pretrained model')
-            self.load_state_dict(torch.load(self.pretrained_path))
+            self.load_state_dict(torch.load(self.pretrained_path), weights_only=True)
             return
 
         # Public pretrained ResNet model
@@ -529,10 +535,10 @@ def train(args):
             train_loss.append(loss_m.item())
             loss_m.backward()
             optimizer.step()
-        logger.info(f'Epoch {e} loss {np.mean(train_loss)}')
+        train_loss = np.mean(train_loss)
         
         if e % args.val_interval == 0:
-            test_loss = []
+            val_loss = []
             for batch in tqdm(val_loader, desc=f'Validation {e}'):
                 imgs, concepts, labels = batch
                 # Show the first image
@@ -546,17 +552,59 @@ def train(args):
                 #print(concepts)
                 optimizer.zero_grad()
                 loss = loss_fn_m(outputs, concepts)
-                test_loss.append(loss.item())
-            test_loss = np.mean(test_loss)
-            logger.info(f"Val loss: {test_loss}")
+                val_loss.append(loss.item())
+            val_loss = np.mean(val_loss)
         
-            if test_loss < best_loss:
-                best_loss = test_loss
+            if val_loss < best_loss:
+                best_loss = val_loss
                 torch.save(test.state_dict(), os.path.join(args.save_dir, f"best_{args.model}.pth"))
                 patience = 0
                 logger.info(f"Best model in epoch {e}")
             if patience > args.patience:
                 break
             patience += 1
-    
+            log_train(e, args, train_loss=train_loss, val_loss=val_loss)
+        else:
+            log_train(e, args, train_loss=train_loss)
+            
+
+    '''#########################################
+        ####        TRAIN LAST LAYER         ####
+        #########################################
+    '''
+    # Load the best model
+    model = test
+    model.load_state_dict(torch.load(os.path.join(args.save_dir, f"best_{args.model}.pth"), weights_only=True))
+    model.eval()
+
+    train_activ_dict = get_activations_and_targets(model, args.dataset, 'train', args)
+    val_activ_dict = get_activations_and_targets(model, args.dataset, 'val', args)
+    train_targets = train_activ_dict['targets']
+    val_targets = val_activ_dict['targets']
+
+    with torch.no_grad():
+        train_y = torch.LongTensor(train_targets)
+        indexed_train_ds = IndexedTensorDataset(train_activ_dict['concepts'], train_y)
+        val_y = torch.LongTensor(val_targets)
+        val_ds = TensorDataset(train_activ_dict['concepts'],val_y)
+
+    indexed_train_loader = DataLoader(indexed_train_ds, batch_size=args.saga_batch_size, shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=args.saga_batch_size, shuffle=False)
+
+    classes = LABELS[args.dataset.split('_')[0]]
+    linear = torch.nn.Linear(train_activ_dict['concepts'].shape[1],len(classes)).to(args.device)
+    linear.weight.data.zero_()
+    linear.bias.data.zero_()
+    metadata = {}
+    metadata['max_reg'] = {}
+    metadata['max_reg']['nongrouped'] = args.lam
+
+    # Solve the GLM path
+    output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
+                    val_loader=val_loader, do_zero=False, metadata=metadata, n_ex=train_activ_dict['n_examples'], n_classes = len(classes))
+    W_g = output_proj['path'][0]['weight']
+    b_g = output_proj['path'][0]['bias']
+            
+    torch.save(W_g, os.path.join(args.save_dir, "W_g.pt"))
+    torch.save(b_g, os.path.join(args.save_dir, "b_g.pt"))
     return args

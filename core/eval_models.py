@@ -20,12 +20,11 @@ def eval_model(args):
 
             #CQA.metrics()
             #print(CQA.metrics())
-            CQA.get_classification_report()
-            print(CQA.classification_report)
-            
             #print(CQA.output)
         
         # If no error occured in measuring disentanglement
+        CQA.get_classification_report()
+        print(CQA.classification_report)
         if CQA.dci is not None:
             print(CQA.dci)
             CQA.save_im_as_img(args.load_dir, "importance_matrix", "Importance Matrix")

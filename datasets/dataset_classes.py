@@ -6,6 +6,9 @@ import os
 import numpy as np
 from datasets.utils import create_dataset
 
+# TODO: make the mini version check if the dimension is bigger than the actual dataset
+# Also could make those customizable from the terminal
+
 '''-------------------------------------------------------------------------'''
 '''
     TORCHVISION DATASETS
@@ -102,7 +105,7 @@ class CelebAMini(Subset):
         download: bool = False,
         concepts: list = None,
         label:int = 20,
-        subset_indices = [0,10000]
+        subset_indices = [0,5000]
     ) -> None:
       '''
         concepts: list of concepts to use, by choosing the indexes of the celeba attributes

@@ -228,7 +228,7 @@ def train(args):
     metadata['max_reg']['nongrouped'] = args.lam
 
     # Solve the GLM path
-    output_proj = glm_saga(linear, indexed_train_loader, STEP_SIZE, args.n_iters, ALPHA, epsilon=1, k=1,
+    output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
                       val_loader=val_loader, do_zero=False, metadata=metadata, n_ex=len(target_features), n_classes = len(classes))
     W_g = output_proj['path'][0]['weight']
     b_g = output_proj['path'][0]['bias']
