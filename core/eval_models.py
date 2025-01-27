@@ -14,7 +14,7 @@ def eval_model(args):
             logger.info("Computing DCI...")
             try:
                 CQA.DCI(0.8)
-                print(CQA.dci)
+                CQA.save()
             except:
                 logger.error("Error in computing DCI")
 

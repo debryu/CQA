@@ -38,8 +38,6 @@ def parse_lfcbm_args(parser, args):
   parser.add_argument("-clip_cutoff", type=float, default=0.25, help="concepts with smaller top5 clip activation will be deleted")
   parser.add_argument("-proj_steps", type=int, default=1000, help="how many steps to train the projection layer for")
   parser.add_argument("-interpretability_cutoff", type=float, default=0.45, help="concepts with smaller similarity to target concept will be deleted")
-  parser.add_argument("-lam", type=float, default=0.0007, help="Sparsity regularization parameter, higher->more sparse")
-  parser.add_argument("-n_iters", type=int, default=1000, help="How many iterations to run the final layer solver for")
   parser.add_argument("-print", action='store_true', help="Print all concepts being deleted in this stage")
   parse_glm_args(parser, args)
   return parser
@@ -124,7 +122,7 @@ def parse_resnetcbm_args(parser, args):
   # Training
   parser.add_argument("-optimizer", type=str, default="adam", help="Which optimizer to use", choices=['adam', 'adamw', 'sgd'])
   parser.add_argument("-lr", type=float, default=0.001, help="Learning rate")
-  parser.add_argument("-n_epochs","-e", type=int, help="Number of epochs to train for")
+  parser.add_argument('-n_epochs','-epochs','-e', type=int, required=True, help="Number of epochs to train the model.")
   parser.add_argument("-scheduler_type", type=str, default="plateau", help="Which scheduler to use", choices=['plateau', 'step'])
   parser.add_argument("-scheduler_kwargs", type=dict, default={}, help="Scheduler kwargs")
   parser.add_argument("-optimizer_kwargs", type=dict, default={}, help="Optimizer kwargs")
@@ -136,8 +134,8 @@ def parse_resnetcbm_args(parser, args):
   return parser
 
 def parse_llamaoracle_args(parser,args):
-  parser.add_argument("-start_idx", type=int, default=0, help="Which index of the dataset to start from when quering the oracle")
-  parser.add_argument("-end_idx", type=int, default=1000, help="Which index of the dataset to start from when quering the oracle")
+  parser.add_argument("-start_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
+  parser.add_argument("-end_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
   # Add the ResNet CBM arguments since it uses that as a backbone
   model = args.model
   ds = args.dataset.split("_")[0]

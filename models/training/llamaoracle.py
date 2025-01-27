@@ -10,88 +10,63 @@ import torchvision.transforms as transforms
 import numpy as np
 from datasets import get_dataset, classes
 from config import folder_naming_convention, ACTIVATIONS_PATH, CONCEPT_SETS, LLM_GENERATED_ANNOTATIONS
-from utils.llamaoracle_utils import query_llama
+from utils.llamaoracle_utils import query_llama, unify_pickles
 from models.training.resnetcbm import train as train_cbm
 
 def create_or_load_oracle_ds(args):
     ds = args.dataset.split("_")[0]
     start = args.start_idx
     end = args.end_idx
-    # Train
-    if os.path.exists(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_train.pth")):
-        train_concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_train.pth"), weights_only=True)
-    else:
-        logger.info(f"{os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_train.pth")} not found!")
-        logger.info(f"Querying train split")
-        # load concepts 
+    concepts_dict = {}
+    for split in ['val','test','train']:
+        os.makedirs(LLM_GENERATED_ANNOTATIONS, exist_ok=True)
+        os.makedirs(os.path.join(LLM_GENERATED_ANNOTATIONS, args.dataset), exist_ok=True)
+        os.makedirs(os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), exist_ok=True)
+        current_folder = os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split)
+
+        
+        # Get the original dataset
         ds = args.dataset.split("_")[0]
-        path = CONCEPT_SETS[ds]
-        with open(path, 'r') as f:
-            concepts = f.read().split("\n")
-        queries = []
-        if ds == "celeba":
+        t = transforms.Compose([
+        transforms.Lambda(lambda x: np.array(x))  # Ensure it's a NumPy array
+        ])
+        original_ds = get_dataset(ds, split=split, transform=t)
+        if start is None:
+            start = 0
+        if end is None:
+            end = len(original_ds)  # One more just to be sure
+        
+        # Check if the dataset exists
+        if os.path.exists(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth")):
+            # Load
+            logger.debug(f"Loading {os.path.join(LLM_GENERATED_ANNOTATIONS,f'{args.dataset}_{split}.pth')}")
+            concepts_dict[split] = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth"), weights_only=True) 
+            print(concepts_dict[split].shape)
+        elif len(os.listdir(current_folder)) == len(original_ds):
+            logger.debug(f"Unifying inside {os.path.join(LLM_GENERATED_ANNOTATIONS,f'{args.dataset}_{split}.pth')}")
+            # Save the concepts in a single .pth file
+            concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth"))
+        else:
+            logger.info(f"Creating or loading oracle dataset for {args.dataset} from {start} to {end}")
+            
+            path = CONCEPT_SETS[ds]
+            with open(path, 'r') as f:
+                concepts = f.read().split("\n")
+            queries = []
             for c in concepts:
                 queries.append(f"a person with {c}")
-        if ds == "shapes3d":
-            for c in concepts:
-                queries.append(f"a {c}")
-        print(queries)
-        t = transforms.Compose([
-        transforms.Lambda(lambda x: np.array(x))  # Ensure it's a NumPy array
-        ])
-        
-        ds = get_dataset(args.dataset, subset_indices=[start,end], split='train', transform=t)
-        dl = DataLoader(ds, batch_size=1, shuffle=False)
-        train_concepts = query_llama(dl, queries)
-        torch.save(train_concepts, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_train.pth"))
-    # Val
-    if os.path.exists(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_val.pth")):
-        val_concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_val.pth"), weights_only=True)
-    else:
-        # load concepts 
-        logger.info(f"Querying val split")
-        ds = args.dataset.split("_")[0]
-        path = CONCEPT_SETS[ds]
-        with open(path, 'r') as f:
-            concepts = f.read().split("\n")
-        queries = []
-        for c in concepts:
-            queries.append(f"a person with {c}")
-        logger.debug(queries)
-        t = transforms.Compose([
-        transforms.Lambda(lambda x: np.array(x))  # Ensure it's a NumPy array
-        ])
-        
-        ds = get_dataset(args.dataset, subset_indices=[start,end], split='val', transform=t)
-        dl = DataLoader(ds, batch_size=1, shuffle=False)
-        val_concepts = query_llama(dl, queries)
-        torch.save(val_concepts, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_val.pth"))
-    
-    return {"train":train_concepts, "val":val_concepts, "test":None}
-    # Skip test for now, we don't need it since we test it with the real labels
-    # Test
-    if os.path.exists(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_test.pth")):
-        test_concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{argsend_idx}_test.pth"))
-    else:
-        # load concepts 
-        logger.info(f"Querying test split")
-        ds = args.dataset.split("_")[0]
-        path = CONCEPT_SETS[ds]
-        with open(path, 'r') as f:
-            concepts = f.read().split("\n")
-        queries = []
-        for c in concepts:
-            queries.append(f"a person with {c}")
-        print(queries)
-        t = transforms.Compose([
-        transforms.Lambda(lambda x: np.array(x))  # Ensure it's a NumPy array
-        ])
-        
-        ds = get_dataset(args.dataset, subset_indices=[start,end], split='train', transform=t)
-        dl = DataLoader(ds, batch_size=1, shuffle=False)
-        test_concepts = query_llama(dl, queries)
-        torch.save(test_concepts, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{args.start_idx}-{args.end_idx}_test.pth"))
-    return {"train":train_concepts, "val":val_concepts, "test":test_concepts}
+            logger.debug(queries)
+            
+            dl = DataLoader(original_ds, batch_size=1, shuffle=False)
+            llm_concepts = query_llama(dl, queries, os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), range=[start,end])
+            
+            if len(os.listdir(current_folder)) == len(original_ds):
+                concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth"))
+            else:
+                logger.error("Not all concepts were queried, please check the folder")
+                raise ValueError("Not all concepts were queried, please check the folder")
+
+    return concepts_dict
 
 def train(args):
     ds = args.dataset.split('_')[0]
@@ -99,6 +74,7 @@ def train(args):
     # The number of samples can still be changed with arguments start_idx and end_idx
     args.dataset = f"{ds}_mini"
     llama_concepts = create_or_load_oracle_ds(args)
+    print(llama_concepts['train'])
     args.num_c = llama_concepts['train'].shape[1]
     
     # This will not persist, as it is created runtime

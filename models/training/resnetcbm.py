@@ -586,7 +586,7 @@ def train(args):
         train_y = torch.LongTensor(train_targets)
         indexed_train_ds = IndexedTensorDataset(train_activ_dict['concepts'], train_y)
         val_y = torch.LongTensor(val_targets)
-        val_ds = TensorDataset(train_activ_dict['concepts'],val_y)
+        val_ds = TensorDataset(val_activ_dict['concepts'],val_y)
 
     indexed_train_loader = DataLoader(indexed_train_ds, batch_size=args.saga_batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.saga_batch_size, shuffle=False)
