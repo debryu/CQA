@@ -9,6 +9,9 @@ from datasets.utils import create_dataset
 # TODO: make the mini version check if the dimension is bigger than the actual dataset
 # Also could make those customizable from the terminal
 
+# TODO: Common class:
+#       - get_train_val_loader
+#       - get_test_loader
 '''-------------------------------------------------------------------------'''
 '''
     TORCHVISION DATASETS
@@ -105,22 +108,31 @@ class CelebAMini(Subset):
         download: bool = False,
         concepts: list = None,
         label:int = 20,
-        subset_indices = [0,5000]
+        subset_indices = [0,3]
     ) -> None:
-      '''
+        '''
         concepts: list of concepts to use, by choosing the indexes of the celeba attributes
         label: the index of the attribute to use as label
-      '''
-      assert type(label) == int # label must be an integer
-      self.has_concepts = True
-
-      if split == 'val':
-        split = 'valid'
+        '''
+        assert type(label) == int # label must be an integer
+        self.has_concepts = True
+        if split == 'val':
+            split = 'valid'
+        if split == 'train':
+            self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
+            self.classes = self.data.classes
+            self.subset_indices = range(subset_indices[0],subset_indices[1])
+            super().__init__(self.data,self.subset_indices)
+        else:
+            self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
+            self.classes = self.data.classes
+            #self.subset_indices = range(subset_indices[0],subset_indices[1])
+            self.subset_indices = range(0,len(self.data))
+            super().__init__(self.data,self.subset_indices)
+        
       
-      self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
-      self.classes = self.data.classes
-      self.subset_indices = range(subset_indices[0],subset_indices[1])
-      super().__init__(self.data,self.subset_indices)
+      
+      
       
 class SHAPES3D_Custom(torch.utils.data.Dataset):
     name = "shapes3d"

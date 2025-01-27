@@ -19,6 +19,7 @@ def parse_args():
     
     # Add the primary flag
     parser.add_argument('-model','-m', required=True, type=str, choices=['lfcbm', 'resnetcbm','llamaoracle','vlgcbm','labo'], help="Specify the model to train.")
+    
     parser.add_argument('-logger', type=str, default="DEBUG", help="Logging level", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     parser.add_argument("-dataset",'-d', type=str, default="celeba", help="Dataset to use")
     parser.add_argument("-config", type=str, default=None, help="Path to a config file for setting all the parameters in a json file")

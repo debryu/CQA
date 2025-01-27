@@ -4,13 +4,19 @@ import io
 from loguru import logger
 from tqdm import tqdm
 import torch
-
-def query_llama(dl, queries):
+import pickle
+import os
+def query_llama(dl, queries, folder, range=None):
     output = [] 
     n_images = len(dl)
     n_concepts = len(queries)
     c_tensors = []
-    for image, concept, label in tqdm(dl,desc="Querying images"):
+    for i, (image, concept, label) in enumerate(tqdm(dl,desc="Querying images")):
+        if range is not None:
+            if i < range[0]:
+                continue
+            if i > range[1]:
+                break
         logger.debug(f"img shape:{image.shape}, concept shape:{concept.shape}, label shape:{label.shape}")
         image = image[0]
         #plt.imshow(image)
@@ -30,7 +36,7 @@ def query_llama(dl, queries):
                 {"role": "user", "content": f"Does the image contain {obj}? Reply only with 'Yes' or 'No'.", "images": [llama_img]},
             ]
             response = ollama.chat(
-                model = "llama3.2-vision",
+                model = "x/llama3.2-vision",
                 messages = messages
             )
             messages.append(response)
@@ -43,10 +49,27 @@ def query_llama(dl, queries):
             text += "\n" + response["message"]['content']
             chat.append(text)
         c_array = torch.tensor(c_array)
-        print(c_array)
+        pickle.dump(c_array, open(os.path.join(folder,f"query_{i}.pkl"),"wb"))
+        #print(c_array)
         c_tensors.append(c_array)
         output.append(chat)
     
     c_tensors = torch.stack(c_tensors, dim=0)
     logger.debug(f"Final shape: {c_tensors.shape}")
     return c_tensors
+
+
+def unify_pickles(folder, save_path):
+    # Save the concepts in a single .pth file
+    concepts_ds = []
+    for sample in tqdm(os.listdir(folder), desc = 'Storing concepts in a single file'):
+        sample_path = os.path.join(folder, sample)
+        with open(sample_path, 'rb') as f:
+            c_tensor = pickle.load(f)
+        print(c_tensor)
+        concepts_ds.append(c_tensor)
+    concepts_ds = torch.stack(concepts_ds, dim=0)
+    logger.debug(f"Final shape: {concepts_ds.shape}. Concepts saved as {save_path}")
+
+    torch.save(concepts_ds, os.path.join(save_path))
+    return concepts_ds

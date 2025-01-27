@@ -14,7 +14,7 @@ def eval_model(args):
             logger.info("Computing DCI...")
             try:
                 CQA.DCI(0.8)
-                print(CQA.dci)
+                CQA.save()
             except:
                 logger.error("Error in computing DCI")
 
@@ -26,7 +26,7 @@ def eval_model(args):
         CQA.get_classification_report()
         print(CQA.classification_report)
         if CQA.dci is not None:
-            print(CQA.dci)
+            print(CQA.dci['disentanglement'])
             CQA.save_im_as_img(args.load_dir, "importance_matrix", "Importance Matrix")
     except Exception as e:
         logger.error(f"Error in initializing CQA {args.load_dir}:\n{e}")
