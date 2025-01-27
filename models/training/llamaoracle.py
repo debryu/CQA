@@ -70,9 +70,6 @@ def create_or_load_oracle_ds(args):
 
 def train(args):
     ds = args.dataset.split('_')[0]
-    # Due to time consuming task of labeling with llama, make by default to use the mini version of the dataset
-    # The number of samples can still be changed with arguments start_idx and end_idx
-    args.dataset = f"{ds}_mini"
     llama_concepts = create_or_load_oracle_ds(args)
     print(llama_concepts['train'])
     args.num_c = llama_concepts['train'].shape[1]

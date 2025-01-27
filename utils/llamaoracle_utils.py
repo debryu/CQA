@@ -36,7 +36,7 @@ def query_llama(dl, queries, folder, range=None):
                 {"role": "user", "content": f"Does the image contain {obj}? Reply only with 'Yes' or 'No'.", "images": [llama_img]},
             ]
             response = ollama.chat(
-                model = "x/llama3.2-vision",
+                model = "llama3.2-vision",
                 messages = messages
             )
             messages.append(response)
