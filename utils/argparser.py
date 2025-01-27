@@ -115,7 +115,7 @@ def parse_vlgcbm_args(parser, args):
 def parse_resnetcbm_args(parser, args):
   model = args.model
   ds = args.dataset.split("_")[0]
-  parser.add_argument("-device", type=str, default="cuda", help="Which device to use")
+  parser.add_argument("-device", type=str, default="cuda:2", help="Which device to use")
   parser.add_argument("-batch_size", type=int, default=512, help="Batch size used when saving model/CLIP activations")
   parser.add_argument("-saga_batch_size", type=int, default=256, help="Batch size used when fitting final layer")
   parser.add_argument("-backbone", type=str, default="resnet18", help="Which ResNet pretrained model to use as backbone", choices=['resnet18', 'resnet34'])

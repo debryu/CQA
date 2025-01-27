@@ -271,7 +271,7 @@ class PretrainedResNetModel(DeepLearningModel):
         super().__init__(args)
         self.dropout = args.dropout_prob
         
-        self.fc_layers = [1000,args.num_c]
+        self.fc_layers = [1000,1000,args.num_c]
         self.pretrained_path = None
         self.pretrained_model_name = args.backbone
         self.pretrained_exclude_vars = None
