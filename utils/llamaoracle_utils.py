@@ -63,7 +63,7 @@ def query_llama(dl, queries, folder, args, range=None):
                 #logger.warning(f"Invalid responses: {ir}")
             text += "\n" + response["message"]['content']
             chat.append(text)
-            print(c_array)
+            #print(c_array)
         avg_invalid_responses += ir
         logger.warning(f"Average invalid responses: {avg_invalid_responses/(i+1)}")
         c_array = torch.tensor(c_array)
