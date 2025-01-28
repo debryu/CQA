@@ -136,7 +136,7 @@ def parse_resnetcbm_args(parser, args):
 def parse_llamaoracle_args(parser,args):
   parser.add_argument("-start_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
   parser.add_argument("-end_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
-  parser.add_argument("-ollama_model", type=str, default="deepseek-r1:1.5b", help="Which ollama model to use")
+  parser.add_argument("-ollama_model", type=str, default="llava-phi3", help="Which ollama model to use")
   # Add the ResNet CBM arguments since it uses that as a backbone
   model = args.model
   ds = args.dataset.split("_")[0]

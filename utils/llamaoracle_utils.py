@@ -1,5 +1,4 @@
 import ollama
-from transformers import AutoModelForCausalLM
 from PIL import Image
 import io
 from loguru import logger
