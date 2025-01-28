@@ -1,4 +1,5 @@
 import ollama
+from transformers import AutoModelForCausalLM
 from PIL import Image
 import io
 from loguru import logger
@@ -6,11 +7,12 @@ from tqdm import tqdm
 import torch
 import pickle
 import os
-def query_llama(dl, queries, folder, range=None):
+def query_llama(dl, queries, folder, args, range=None):
     output = [] 
     n_images = len(dl)
     n_concepts = len(queries)
     c_tensors = []
+    avg_invalid_responses = 0
     for i, (image, concept, label) in enumerate(tqdm(dl,desc="Querying images")):
         if range is not None:
             if i < range[0]:
@@ -30,24 +32,41 @@ def query_llama(dl, queries, folder, range=None):
 
         chat = []
         c_array = []
+        ir = 0
         for obj in queries:
             text = f"Does the image contain {obj}?"
+            
             messages = [
-                {"role": "user", "content": f"Does the image contain {obj}? Reply only with 'Yes' or 'No'.", "images": [llama_img]},
+                {"role": "user", "content": f"Does the image contain {obj}?", "images": [llama_img]},
+                {"role": "user", "content": f"Please reply only with 'Yes' or 'No'."},
             ]
             response = ollama.chat(
-                model = "x/llama3.2-vision",
+                model = args.ollama_model,
+                options={"temperature":0.0},
+                #model = "x/llama3.2-vision",
                 messages = messages
             )
-            messages.append(response)
-            llama_response = str(response["message"]['content']).lower()
-            
+            messages.append(response['message'])
+            llama_response = str(response["message"]['content']).lower().strip()
+            #print(f"Does the image contain {obj}? Reply only with 'Yes' or 'No'.\n")
+            #print(llama_response)
             if llama_response.startswith("y"):
                 c_array.append(1)
+            elif llama_response.endswith(" yes") or " yes" in llama_response:
+                c_array.append(1)
+            elif llama_response.startswith("n"):
+                c_array.append(0)
+            elif llama_response.endswith(" no") or " no" in llama_response:
+                c_array.append(0)
             else:
                 c_array.append(0)
+                ir += 1 
+                #logger.warning(f"Invalid responses: {ir}")
             text += "\n" + response["message"]['content']
             chat.append(text)
+            print(c_array)
+        avg_invalid_responses += ir
+        logger.warning(f"Average invalid responses: {avg_invalid_responses/(i+1)}")
         c_array = torch.tensor(c_array)
         pickle.dump(c_array, open(os.path.join(folder,f"query_{i}.pkl"),"wb"))
         #print(c_array)
