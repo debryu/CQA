@@ -20,6 +20,7 @@ DATASETS_FOLDER_PATHS = {
 
 CONCEPT_SETS = {
   "celeba":"./data/concepts/celeba/handmade.txt",
+  "shapes3d":"./data/concepts/shapes3d/shapes3d.txt",
   "cifar10": "./data/concepts/cifar10/cifar10_filtered.txt",
 }
 
