@@ -108,7 +108,7 @@ class CelebAMini(Subset):
         download: bool = False,
         concepts: list = None,
         label:int = 20,
-        subset_indices = [0,3]
+        subset_indices = [0,40000]
     ) -> None:
         '''
         concepts: list of concepts to use, by choosing the indexes of the celeba attributes

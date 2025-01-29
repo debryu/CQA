@@ -11,6 +11,7 @@ import torch.utils.model_zoo as model_zoo
 from torch.optim import lr_scheduler
 from torchvision.models.resnet import Bottleneck, BasicBlock
 from torchvision import transforms
+from torchvision.transforms.v2 import ColorJitter
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
@@ -23,6 +24,7 @@ from config import LABELS
 from datasets import get_dataset
 from datasets.utils import compute_imbalance
 from utils.resnetcbm_utils import get_activations_and_targets
+from utils.args_utils import save_args
 
 class DeepLearningModel(nn.Module):
     def __init__(self, args):
@@ -483,10 +485,11 @@ def train(args):
             transforms.ToTensor(),
             transforms.Resize((224,224)),
             #transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            
+            #transforms.RandomHorizontalFlip(),
+            #ColorJitter(brightness=[0.0,0.1], contrast=[0.0,0.1], saturation=[0.0,0.3], hue=[0.0,0.02]),
             #normalize,
         ])
+    args.transform = str(t)
     data = get_dataset(args.dataset, split='train', transform=t)
     if not data.has_concepts:
         args.num_c = 128
@@ -567,8 +570,8 @@ def train(args):
         else:
             log_train(e, args, train_loss=train_loss)
             
-
-    '''#########################################
+    save_args(args)
+    ''' #########################################
         ####        TRAIN LAST LAYER         ####
         #########################################
     '''
@@ -586,7 +589,10 @@ def train(args):
         train_y = torch.LongTensor(train_targets)
         indexed_train_ds = IndexedTensorDataset(train_activ_dict['concepts'], train_y)
         val_y = torch.LongTensor(val_targets)
+        print(val_activ_dict['concepts'].shape)
+        print(val_y.shape)
         val_ds = TensorDataset(val_activ_dict['concepts'],val_y)
+
 
     indexed_train_loader = DataLoader(indexed_train_ds, batch_size=args.saga_batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.saga_batch_size, shuffle=False)

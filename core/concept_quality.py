@@ -3,6 +3,7 @@ from utils.dci_utils import save_IM_as_img
 import pickle
 import os
 import json
+import copy
 #from utils.utils import compute_concept_frequencies
 from models import get_model
 from loguru import logger
@@ -15,6 +16,7 @@ from utils.args_utils import load_args
 # TODO: Count Imbalances for each ds once
 class CONCEPT_QUALITY():
   def __init__(self, model):
+    self.main_args = None #args used to call the main function
     self.model = model
     self.output = None
     self.dci = None
@@ -52,7 +54,7 @@ class CONCEPT_QUALITY():
     return self.classification_report
 
   def metrics(self):
-    get_conceptWise_metrics(self.output, theshold=0.5)
+    get_conceptWise_metrics(self.output, self.model.args, self.main_args, theshold=0.5)
     return
   
   def DCI(self,train_test_ratio=0.7,max_samples:int = None, level = 'INFO'):
@@ -71,9 +73,10 @@ class CONCEPT_QUALITY():
       concept_gt_val = concept_gt_val[:max_samples]
 
     logger.debug(f"Computing DCI with train_test_ratio={train_test_ratio}...")
-    dci = DCI_wrapper(representation_train, concept_gt_train, representation_val, concept_gt_val, level)
-    dci['train_test_ratio'] = train_test_ratio
-    self.dci = dci
+    #dci = DCI_wrapper(representation_train, concept_gt_train, representation_val, concept_gt_val, level)
+    #dci['train_test_ratio'] = train_test_ratio
+    #self.dci = dci
+    dci = None
     self.save()
     return dci
 
@@ -89,6 +92,8 @@ def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False
     with open(folder_path + '/CQA.pkl', 'rb') as f:
       CQA = pickle.load(f)
   else:
+    main_args = copy.deepcopy(args)
+    main_args.run_name = os.path.basename(folder_path)
     logger.info("CQA not found. Initializing CQA from scratch.")
     # Load args
     logger.debug(f"Loading args from {folder_path}")
@@ -100,6 +105,7 @@ def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False
     logger.debug(f"Model loaded: {model}")
     # args are uploaded in the model, so no need to pass them again
     CQA = CONCEPT_QUALITY(model)
+    CQA.main_args = main_args
     logger.info(f"Running the model on {model.args.dataset} {split}...")
     # Run the model to get all the outputs
     CQA.store_output(split)

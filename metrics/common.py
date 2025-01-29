@@ -13,8 +13,10 @@ out_dict = {
       }
 '''
 
-def get_conceptWise_metrics(output, args, theshold=0.0):
-    ds = args.dataset.split("_")[0]
+def get_conceptWise_metrics(output, model_args, main_args, theshold=0.0):
+    if main_args.wandb:
+        import wandb
+    ds = model_args.dataset.split("_")[0]
     concept_preds = output['concepts_pred']
     concept_gt = output['concepts_gt']
     # Should be already on cpu but just in case
@@ -40,9 +42,11 @@ def get_conceptWise_metrics(output, args, theshold=0.0):
     for i in range(len(concept_pred_list)):
         print(f"Concept {i}: {concept_names[i]}")
         tn = [f"No {concept_names[i]}",f"{concept_names[i]}"]
+        cr = classification_report(concept_gt_list[i], concept_pred_list[i], target_names=tn, output_dict=True)
         print(classification_report(concept_gt_list[i], concept_pred_list[i], target_names=tn))
+        if main_args.wandb:
+            wandb.log({f"concept_accuracy":cr['accuracy'], "manual_step":i})
         
-    
 def get_metrics(output, requested:list[str]):
   metrics = []
   for metric in requested:

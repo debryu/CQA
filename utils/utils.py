@@ -67,14 +67,13 @@ def one_hot_concepts(concepts):
     return one_hots
 
 def log_train(epoch, args, train_loss = None, val_loss = None, dict = None):
-  logs = {"epoch":epoch}
-  
-  if args.wandb:
-    if train_loss is not None:
-      logs["train_loss"] = train_loss
-    if val_loss is not None:
-      logs["val_loss"] = val_loss
-    if dict is not None:
-      logs.update(dict)
-  logger.info(f"Train Loss: {train_loss}, Val Loss: {val_loss}")
-  wandb.log(logs)
+    logs = {"epoch":epoch}
+    if args.wandb:
+        if train_loss is not None:
+            logs["train_loss"] = train_loss
+        if val_loss is not None:
+            logs["val_loss"] = val_loss
+        if dict is not None:
+            logs.update(dict)
+        wandb.log(logs)
+    logger.info(f"Train Loss: {train_loss}, Val Loss: {val_loss}")
