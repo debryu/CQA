@@ -160,6 +160,13 @@ class SHAPES3D_Custom(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.images)
 
+class SHAPES3DMini(Subset):
+    name = "shapes3d_mini"
+    def __init__(self, root='./data/shapes3d', split='train', transform = None, args=None, subset_indices = [0,10000]):
+        self.data = SHAPES3D_Custom(root=root,split=split,transform=transform,args=args)
+        self.classes = self.data.classes
+        self.subset_indices = range(subset_indices[0],subset_indices[1])
+        super().__init__(self.data,self.subset_indices)
 
 '''-------------------------------------------------------------------------'''
 '''

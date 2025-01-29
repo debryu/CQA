@@ -14,10 +14,11 @@ from utils.llamaoracle_utils import query_llama, unify_pickles
 from models.training.resnetcbm import train as train_cbm
 
 def create_or_load_oracle_ds(args):
+    ds = args.dataset.split("_")[0]
     start = args.start_idx
     end = args.end_idx
     concepts_dict = {}
-    for split in ['train','test','val']:
+    for split in ['val','train','test']:
         os.makedirs(LLM_GENERATED_ANNOTATIONS, exist_ok=True)
         os.makedirs(os.path.join(LLM_GENERATED_ANNOTATIONS, args.dataset), exist_ok=True)
         os.makedirs(os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), exist_ok=True)
@@ -69,9 +70,6 @@ def create_or_load_oracle_ds(args):
 
 def train(args):
     ds = args.dataset.split('_')[0]
-    # Due to time consuming task of labeling with llama, make by default to use the mini version of the dataset
-    # The number of samples can still be changed with arguments start_idx and end_idx
-    args.dataset = ds+"_mini"
     llama_concepts = create_or_load_oracle_ds(args)
     print(llama_concepts['train'])
     args.num_c = llama_concepts['train'].shape[1]

@@ -631,7 +631,32 @@ def get_concept_dataloader(
             concept_only=concept_only
         )
         logger.info(f"Test dataset size: {len(dataset)}")
+    elif split == 'train':
+        dataset = dataset(
+            dataset_name,
+            get_dataset(dataset_name, split="train"),
+            concepts,
+            split_suffix="train",
+            preprocess=preprocess,
+            confidence_threshold=confidence_threshold,
+            crop_to_concept_prob=crop_to_concept_prob,
+            label_dir=label_dir,
+            concept_only=concept_only
+        )
+    elif split == 'val' or split == 'valid':
+        dataset = dataset(
+            dataset_name,
+            get_dataset(dataset_name, split="val"),
+            concepts,
+            split_suffix="val",
+            preprocess=preprocess,
+            confidence_threshold=confidence_threshold,
+            crop_to_concept_prob=crop_to_concept_prob,
+            label_dir=label_dir,
+            concept_only=concept_only
+        )
     else:
+        raise NotImplementedError
         assert val_split is not None
         dataset = dataset(
             dataset_name,
