@@ -18,7 +18,7 @@ def create_or_load_oracle_ds(args):
     start = args.start_idx
     end = args.end_idx
     concepts_dict = {}
-    for split in ['val','test','train']:
+    for split in ['val','train','test']:
         os.makedirs(LLM_GENERATED_ANNOTATIONS, exist_ok=True)
         os.makedirs(os.path.join(LLM_GENERATED_ANNOTATIONS, args.dataset), exist_ok=True)
         os.makedirs(os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), exist_ok=True)
