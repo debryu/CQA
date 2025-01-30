@@ -106,7 +106,8 @@ def train(args):
     new_temp_args.dataset = f'{args.dataset}_temp'
     classes[new_temp_args.dataset] = LlamaAnnotatedDataset
     logger.debug(f"Available datasets: {classes}")
-    train_cbm(new_temp_args)
+    final_args = train_cbm(new_temp_args)
+    args.update(final_args)
     
     return args
 

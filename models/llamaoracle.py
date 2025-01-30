@@ -19,14 +19,3 @@ class LLAMAORACLE(BaseModel):
         
         # Update the args
         self.args = args
-
-    # Define preprocess transform
-    def get_transform(self):
-        t = transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Resize((224,224)),
-                ]
-            )
-        return t
-    

@@ -16,13 +16,17 @@ def run(args):
     if args.wandb:
         wand_run = wandb.init(
             # Set the project where this run will be logged
-            project="Concept Quality Analysis",
+            project=f"Concept Quality Analysis",
             name=folder_name,
             # Track hyperparameters and run metadata
             config=args
         )
+        args.run_id = wand_run.id
 
     train_fn = get_trainer(args)
     final_args = train_fn(args)
+    if args.wandb:
+        wandb.config.update(final_args)
+        wandb.finish()
     save_args(final_args)
     return
