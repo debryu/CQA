@@ -584,7 +584,7 @@ def train(args):
     val_activ_dict = get_activations_and_targets(model, args.dataset, 'val', args)
     train_targets = train_activ_dict['targets']
     val_targets = val_activ_dict['targets']
-
+    
     with torch.no_grad():
         train_y = torch.LongTensor(train_targets)
         indexed_train_ds = IndexedTensorDataset(train_activ_dict['concepts'], train_y)

@@ -16,6 +16,7 @@ DATASETS_FOLDER_PATHS = {
   "celeba":"/mnt/cimec-storage6/users/nicola.debole/home/data/celeba_manual_download",
   "shapes3d":"./data/shapes3d/",
   "cifar10":"./data/cifar10/",
+  "cub":"./data/cub/"
 }
 
 CONCEPT_SETS = {

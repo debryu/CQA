@@ -4,7 +4,14 @@ import torch
 from tqdm import tqdm
 import os
 import numpy as np
+from torchvision.datasets.folder import default_loader
+import pandas as pd
+from torchvision.datasets.utils import download_url
+from loguru import logger
+from PIL import Image
 from datasets.utils import create_dataset
+import traceback
+import pickle
 
 # TODO: make the mini version check if the dimension is bigger than the actual dataset
 # Also could make those customizable from the terminal
@@ -174,93 +181,71 @@ class SHAPES3DMini(Subset):
 '''
 '''-------------------------------------------------------------------------'''
 
-import os
-import pandas as pd
-from torchvision.datasets.folder import default_loader
-from torchvision.datasets.utils import download_url
-
-class Cub2011(Dataset):
-    name = "cub"
-    url = 'https://data.caltech.edu/records/65de6-vp158/files/CUB_200_2011.tgz?download=1'
-    filename = 'CUB_200_2011.tgz'
-    tgz_md5 = '97eceeb196236b17998738112f37df78'
-
-    def __init__(self, root, split='train', transform=None, download=True, args=None):
+class CUBDataset(Dataset):
+    """
+    Returns a compatible Torch Dataset object customized for the CUB dataset
+    """
+    name = 'cub'
+    def __init__(self, root, transform=None):
         self.root = root
-        self.has_concepts = True
+        
+        self.pkl_urls = ['https://worksheets.codalab.org/rest/bundles/0x5b9d528d2101418b87212db92fea6683/contents/blob/class_attr_data_10/train.pkl', 
+                    'https://worksheets.codalab.org/rest/bundles/0x5b9d528d2101418b87212db92fea6683/contents/blob/class_attr_data_10/test.pkl',
+                    'https://worksheets.codalab.org/rest/bundles/0x5b9d528d2101418b87212db92fea6683/contents/blob/class_attr_data_10/val.pkl']
+        self.cub_url = 'https://data.caltech.edu/records/65de6-vp158/files/CUB_200_2011.tgz?download=1'
+        self.filename = 'CUB_200_2011.tgz'
+        self.tgz_md5 = '97eceeb196236b17998738112f37df78'
+        # Create folders
+        os.makedirs(self.root,exist_ok=True)
+        os.makedirs(os.path.join(self.root,'class_attr_data_10'), exist_ok=True)
+        self.splits = ['train.pkl','test.pkl','val.pkl']
+        self.pkl_file_paths = [os.path.join(self.root,'class_attr_data_10',split) for split in self.splits]
+        # Download CUB
+        self._download()
+        self.data = []
+        self.is_train = any(["train" in path for path in self.pkl_file_paths])
+        if not self.is_train:
+            assert any([("test" in path) or ("val" in path) for path in self.pkl_file_paths])
+        for file_path in self.pkl_file_paths:
+            #print(file_path)
+            self.data.extend(pickle.load(open(file_path, 'rb')))
         self.transform = transform
-        self.loader = default_loader
-        self.split = split
-        self.args = args
-        if download:
-            self._download()
-
-        if not self._check_integrity():
-            raise RuntimeError('Dataset not found or corrupted.' +
-                               ' You can use download=True to download it')
-
-    def _load_metadata(self):
-        images = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'images.txt'), sep=' ',
-                             names=['img_id', 'filepath'])
-        image_class_labels = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'image_class_labels.txt'),
-                                         sep=' ', names=['img_id', 'target'])
-        train_test_split = pd.read_csv(os.path.join(self.root, 'CUB_200_2011', 'train_test_split.txt'),
-                                       sep=' ', names=['img_id', 'is_training_img'])
-
-        data = images.merge(image_class_labels, on='img_id')
-        self.data = data.merge(train_test_split, on='img_id')
-
-        if self.split == 'train':
-            self.data = self.data[self.data.is_training_img == 1]
-        else:
-            test_valid_data = self.data[self.data.is_training_img == 0]
-            tv_len = len(test_valid_data)
-            if 'val_test_ratio' in self.args:
-                val_test_ratio = self.args.val_test_ratio
-            else:
-                val_test_ratio = 0.2
-            val_len = int(tv_len * val_test_ratio)
-            test_len = tv_len - val_len
-            if self.split == 'test':  
-              self.data = test_valid_data[:test_len]
-            else:
-              self.data = test_valid_data[test_len:]
-
-    def _check_integrity(self):
-        try:
-            self._load_metadata()
-        except Exception:
-            return False
-
-        for index, row in self.data.iterrows():
-            filepath = os.path.join(self.root, self.base_folder, row.filepath)
-            if not os.path.isfile(filepath):
-                print(filepath)
-                return False
-        return True
+        self.use_attr = True
+        self.no_img = False
+        self.image_dir = os.path.join(root,'CUB_200_2011','images')
+        self.n_class_attr = 2
 
     def _download(self):
         import tarfile
-
-        if self._check_integrity():
-            print('Files already downloaded and verified')
-            return
-
-        download_url(self.url, self.root, self.filename, self.tgz_md5)
-
-        with tarfile.open(os.path.join(self.root, self.filename), "r:gz") as tar:
-            tar.extractall(path=self.root)
+        # Download CUB images
+        print(os.path.join(self.root,'CUB_200_2011.tgz'))
+        if os.path.exists(os.path.join(self.root,'CUB_200_2011.tgz')):
+            logger.debug('Files already downloaded and extracted.')
+        else:
+            logger.info('Downloading CUB...')
+            download_url(self.cub_url, self.root, self.filename, self.tgz_md5)
+        if not os.path.exists(os.path.join(self.root,'CUB_200_2011/')):
+            logger.info("Extracting CUB_200_2011.tgz")
+            with tarfile.open(os.path.join(self.root, self.filename), "r:gz") as tar:
+                tar.extractall(path=self.root)
+        # Download CUB attributes
+        for i,p in enumerate(self.pkl_file_paths):
+            if not os.path.exists(p):
+                logger.debug(f"Downloading {p}")
+                download_url(self.pkl_urls[i],os.path.join(self.root,'class_attr_data_10'), self.splits[i])
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        sample = self.data.iloc[idx]
-        path = os.path.join(self.root, self.base_folder, sample.filepath)
-        target = sample.target - 1  # Targets start at 1 by default, so shift to 0
-        img = self.loader(path)
-
-        if self.transform is not None:
+        img_data = self.data[idx]
+        img_path = img_data['img_path']
+        idx = img_path.split('/').index('CUB_200_2011')
+        img_path = '/'.join([self.image_dir] + img_path.split('/')[idx+2:])
+        img = Image.open(img_path).convert('RGB')
+        class_label = img_data['class_label']
+        if self.transform:
             img = self.transform(img)
-
-        return img, target
+        attr_label = img_data['attribute_label']
+            
+        return img, torch.tensor(attr_label), torch.tensor(class_label)
