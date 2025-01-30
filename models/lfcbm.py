@@ -22,6 +22,7 @@ def get_backbone_function(model, x):
 class _Model(torch.nn.Module):
     def __init__(self, backbone_name, W_c, W_g, b_g, proj_mean, proj_std, args, device="cuda"): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
         super().__init__()
+        self.args = args
         logger.debug(f"Saving activations for {args.clip_name} on {backbone_name} backbone")
         model, _ = get_target_model(backbone_name, device)
         #remove final fully connected layer
@@ -41,6 +42,10 @@ class _Model(torch.nn.Module):
         self.final = torch.nn.Linear(in_features = W_g.shape[1], out_features=W_g.shape[0]).to(device)
         self.final.load_state_dict({"weight":W_g, "bias":b_g})
         self.concepts = None
+
+    def load(self):
+        # The model is already loaded when initialized
+        pass
         
     def forward(self, x):
         x = self.backbone(x)
@@ -86,13 +91,7 @@ class LFCBM(BaseModel):
     def train(self, loader):
         pass
     
-    def get_transform(self):
-        t = transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Resize((224,224)),
-                ]
-            )
+    def get_transform(self,split):
         c = Compose([
                 Resize((224,224), interpolation=BICUBIC),
                 CenterCrop((224,224)),

@@ -87,13 +87,14 @@ class CONCEPT_QUALITY():
 
 def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False):
   logger.debug(f"Initializing CQA from {folder_path}")
+  main_args = copy.deepcopy(args)
   # Check if CQA (Concept Quality Analysis) is already present
   if os.path.exists(folder_path + '/CQA.pkl') and not force_from_scratch:
     logger.info("CQA found. Loading CQA.")
     with open(folder_path + '/CQA.pkl', 'rb') as f:
       CQA = pickle.load(f)
+    CQA.main_args = main_args
   else:
-    main_args = copy.deepcopy(args)
     main_args.run_name = os.path.basename(folder_path)
     logger.info("CQA not found. Initializing CQA from scratch.")
     # Load args

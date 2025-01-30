@@ -9,6 +9,7 @@ from core.concept_quality import initialize_CQA
 def eval_model(args):
     try:
         CQA = initialize_CQA(args.load_dir, args, split = 'test', force_from_scratch = args.force)
+        logger.debug(f"Args: {CQA.main_args}")
         if CQA.main_args.wandb:
             import wandb
             wandb.init(project="Concept Quality Analysis", id=args.run_idp, resume="allow")

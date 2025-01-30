@@ -23,6 +23,7 @@ CONCEPT_SETS = {
   "celeba":"./data/concepts/celeba/handmade.txt",
   "shapes3d":"./data/concepts/shapes3d/shapes3d.txt",
   "cifar10": "./data/concepts/cifar10/cifar10_filtered.txt",
+  "cub":"./data/concepts/cub/cub_preprocess.txt",
 }
 
 LLM_GENERATED_ANNOTATIONS = "./data/llava-phi3_annotations"
@@ -31,6 +32,7 @@ LABELS = {
   "celeba": ['male', 'female'],
   "cifar10": ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck'],
   "shapes3d": ['red pill', 'not a red pill'],
+  "cub": list(range(200)),
 }
 
 def folder_naming_convention(args):

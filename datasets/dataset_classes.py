@@ -16,6 +16,8 @@ import pickle
 # TODO: make the mini version check if the dimension is bigger than the actual dataset
 # Also could make those customizable from the terminal
 
+# TODO: Remove celeba self.classes
+
 # TODO: Common class:
 #       - get_train_val_loader
 #       - get_test_loader
@@ -194,7 +196,7 @@ class CUBDataset(Dataset):
     Returns a compatible Torch Dataset object customized for the CUB dataset
     """
     name = 'cub'
-    def __init__(self, root, transform=None):
+    def __init__(self, root, split, transform=None):
         self.root = root
         
         self.pkl_urls = ['https://worksheets.codalab.org/rest/bundles/0x5b9d528d2101418b87212db92fea6683/contents/blob/class_attr_data_10/train.pkl', 
@@ -211,22 +213,27 @@ class CUBDataset(Dataset):
         # Download CUB
         self._download()
         self.data = []
+        self.has_concepts = True
         self.is_train = any(["train" in path for path in self.pkl_file_paths])
         if not self.is_train:
             assert any([("test" in path) or ("val" in path) for path in self.pkl_file_paths])
-        for file_path in self.pkl_file_paths:
-            #print(file_path)
-            self.data.extend(pickle.load(open(file_path, 'rb')))
+        
+        if split == 'train':
+            self.data.extend(pickle.load(open(self.pkl_file_paths[0], 'rb')))
+        elif split == 'test':
+            self.data.extend(pickle.load(open(self.pkl_file_paths[1], 'rb')))
+        elif split == 'val':
+            self.data.extend(pickle.load(open(self.pkl_file_paths[2], 'rb')))
+        else:
+            raise NotImplementedError
+        
         self.transform = transform
-        self.use_attr = True
-        self.no_img = False
         self.image_dir = os.path.join(root,'CUB_200_2011','images')
-        self.n_class_attr = 2
 
     def _download(self):
         import tarfile
         # Download CUB images
-        print(os.path.join(self.root,'CUB_200_2011.tgz'))
+        #print(os.path.join(self.root,'CUB_200_2011.tgz'))
         if os.path.exists(os.path.join(self.root,'CUB_200_2011.tgz')):
             logger.debug('Files already downloaded and extracted.')
         else:
