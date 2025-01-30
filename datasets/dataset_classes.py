@@ -117,9 +117,9 @@ class CelebAMini(Subset):
         download: bool = False,
         concepts: list = None,
         label:int = 20,
-        train_subset_indices = [0,10000],
-        val_subset_indices = [0,1000],
-        test_subset_indices = [0,10000],
+        train_subset_indices = [0,40000],
+        val_subset_indices = [0,-1],
+        test_subset_indices = [0,-1],
     ) -> None:
         '''
         concepts: list of concepts to use, by choosing the indexes of the celeba attributes
@@ -132,18 +132,27 @@ class CelebAMini(Subset):
         if split == 'train':
             self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
             self.classes = self.data.classes
-            self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
+            if train_subset_indices[1] == -1:
+                train_subset_indices[1] = len(self.data)
+            else:
+                self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
             super().__init__(self.data,self.subset_indices)
         elif split == 'val' or split == 'valid':
             self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
             self.classes = self.data.classes
-            self.subset_indices = range(val_subset_indices[0],val_subset_indices[1])
+            if val_subset_indices[1] == -1:
+                val_subset_indices[1] = len(self.data)
+            else:
+                self.subset_indices = range(val_subset_indices[0],val_subset_indices[1])
             #self.subset_indices = range(0,len(self.data))
             super().__init__(self.data,self.subset_indices)
         elif split == 'test':
             self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
             self.classes = self.data.classes
-            self.subset_indices = range(test_subset_indices[0],test_subset_indices[1])
+            if test_subset_indices[1] == -1:
+                test_subset_indices[1] = len(self.data)
+            else:
+                self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
             #self.subset_indices = range(0,len(self.data))
             super().__init__(self.data,self.subset_indices)
         

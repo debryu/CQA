@@ -18,7 +18,7 @@ def query_llama(dl, queries, folder, args, range=None):
                 continue
             if i > range[1]:
                 break
-        logger.debug(f"img shape:{image.shape}, concept shape:{concept.shape}, label shape:{label.shape}")
+        #logger.debug(f"img shape:{image.shape}, concept shape:{concept.shape}, label shape:{label.shape}")
         image = image[0]
         #plt.imshow(image)
         #plt.show()
@@ -29,7 +29,7 @@ def query_llama(dl, queries, folder, args, range=None):
         llama_img = img_byte_arr.getvalue()
         img_byte_arr.close()
 
-        chat = []
+        #chat = []
         c_array = []
         ir = 0
         for obj in queries:
@@ -62,19 +62,19 @@ def query_llama(dl, queries, folder, args, range=None):
                 ir += 1 
                 #logger.warning(f"Invalid responses: {ir}")
             text += "\n" + response["message"]['content']
-            chat.append(text)
+            #chat.append(text)
             #print(c_array)
         avg_invalid_responses += ir
         logger.warning(f"Average invalid responses: {avg_invalid_responses/(i+1)}")
         c_array = torch.tensor(c_array)
         pickle.dump(c_array, open(os.path.join(folder,f"query_{i}.pkl"),"wb"))
         #print(c_array)
-        c_tensors.append(c_array)
-        output.append(chat)
-    
-    c_tensors = torch.stack(c_tensors, dim=0)
-    logger.debug(f"Final shape: {c_tensors.shape}")
-    return c_tensors
+        #c_tensors.append(c_array)
+        #output.append(chat)
+    return
+    #c_tensors = torch.stack(c_tensors, dim=0)
+    #logger.debug(f"Final shape: {c_tensors.shape}")
+    #return c_tensors
 
 
 def unify_pickles(folder, save_path):
