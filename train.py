@@ -8,6 +8,7 @@ from core.train_models import run
 import json
 
 # TODO: add seed for reproducibility
+# TODO: change llamaoracle name to oracle
 '''
 Example:
 python train.py -model vlgcbm -dataset celeba -e 5

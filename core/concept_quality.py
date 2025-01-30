@@ -32,6 +32,7 @@ class CONCEPT_QUALITY():
         self.label_freq = json.load(open(os.path.join(self.model.args.load_dir,"train_label_freq.txt")))
     
   def store_output(self, split = 'test'):
+    logger.debug(f"Storing output for {split} split.")
     self.output = self.model.run(split)
     logger.debug(f"Output stored in CQA object.")
     return
