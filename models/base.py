@@ -2,9 +2,12 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import torch
 from loguru import logger
+from torchvision import transforms
+from torchvision.transforms.v2 import ColorJitter, GaussianNoise
 
 from config import SAVED_MODELS_FOLDER
 from datasets import get_dataset
+
 class BaseModel():
     def __init__(self,*args):
       self.saved_models = SAVED_MODELS_FOLDER
@@ -12,12 +15,26 @@ class BaseModel():
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.__dict__}>"
 
-    def get_transform(self):
-      pass
+    def get_transform(self, split):
+      logger.debug(f"Using default method get_transform for {split}")
+      if split == 'train':
+        return transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((224,224)),
+            #transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            ColorJitter(brightness=0.3, contrast=0.5, saturation=0.1, hue=0.0),
+            GaussianNoise(0,0.02),
+        ])
+      else:
+        return transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((224,224)),
+        ])
 
     def get_loader(self, split = 'test'):
       logger.debug(f"Using default method get_loader for {split}")
-      transform = self.get_transform()
+      transform = self.get_transform(split=split)
       dataset_name = self.args.dataset
       data = get_dataset(dataset_name, split = split, transform = transform)
       if split == 'train':
@@ -31,8 +48,6 @@ class BaseModel():
         raise ValueError("args is not defined. Make sure to set it in the custom __init__ function.")
       if not hasattr(self, 'model'):
         raise ValueError("model is not defined. Make sure to set it in the custom __init__ function.")
-      if not hasattr(self, 'load_dir'):
-        raise ValueError("load_dir is not defined. Make sure to set it in the custom __init__ function.")
       try:
         batch_size = self.args.batch_size
       except:
@@ -40,8 +55,11 @@ class BaseModel():
       # Check if the methods exist
       
     def run(self, split = 'test'):
+      logger.debug(f"Running model on {split} split.")
       self.check_integrity()
       loader = self.get_loader(split)
+      self.model.args.transform = str(self.get_transform(split=split))
+      self.model.load() # Load the model weights
       device = self.args.device
       annotations = []
       concepts = []
@@ -50,7 +68,7 @@ class BaseModel():
       acc_mean = 0
       debug_i = 0
       n = 0
-      for features, concepts_one_hot, targets in tqdm(loader):
+      for features, concepts_one_hot, targets in tqdm(loader, desc = f"Running {split}"):
         features = features.to(device)
         concepts_one_hot = concepts_one_hot.to(device)
         targets = targets.to(device)
@@ -91,4 +109,5 @@ class BaseModel():
       return out_dict
 
     def update_args(self):
-      self.args = self.model.args
+      self.args = self.model.args  
+      return self.args
