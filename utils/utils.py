@@ -5,6 +5,16 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 import numpy as np
 import wandb 
+import random
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 def get_resnet_imagenet_preprocess():
     target_mean = [0.485, 0.456, 0.406]
     target_std = [0.229, 0.224, 0.225]

@@ -55,6 +55,10 @@ class _Model(torch.nn.Module):
     def start_optim(self, args):
         self.opt = torch.optim.Adam(self.parameters(), args.lr)
 
+    def load(self):
+        # The model is already loading in init
+        pass
+
 
 class LABO(BaseModel):
     def __init__(self, args):
@@ -93,7 +97,7 @@ class LABO(BaseModel):
         
 
     def get_loader(self, split='test'):
-        transform = self.get_transform()
+        transform = self.get_transform(split)
         dataset_name = self.args.dataset
         data = get_dataset(dataset_name, split = split, transform = transform)
 
@@ -123,19 +127,13 @@ class LABO(BaseModel):
         return DataLoader(indexed_data, batch_size = self.args.batch_size, shuffle = False)
 
 
-    def get_transform(self):
+    def get_transform(self,split):
         c = Compose([
                 Resize((224,224), interpolation=BICUBIC),
                 CenterCrop((224,224)),
                 ToTensor(),
                 Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
             ])
-        t = transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Resize((224,224)),
-                ]
-            )
-        return t
+        return c
 
 

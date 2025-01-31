@@ -20,10 +20,10 @@ def train(args):
     args.num_classes = len(LABELS[args.dataset.split('_')[0]])
     data = get_dataset(args.dataset, split='val', transform=None)
     args.val_size = len(data)
-    if not data.has_concepts:
+    args.num_c = data[0][1].shape[0]
+    if args.num_c <= 1:
+        logger.warning("Bottleneck size equal to 1. Setting the bottleneck size to 128 as default.")
         args.num_c = 128
-    else:
-        args.num_c = data[0][1].shape[0]
     del data
 
     model_class = RESNETCBM(args)
@@ -33,11 +33,6 @@ def train(args):
     args.transform = str(transform)
     data = get_dataset(args.dataset, split='train', transform=transform)
     args.train_size = len(data)
-    if not data.has_concepts:
-        args.num_c = 128
-    else:
-        args.num_c = data[0][1].shape[0]
-    
 
     #normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      #std=[0.229, 0.224, 0.225])
@@ -125,17 +120,17 @@ def train(args):
         #########################################
     '''
     # Load the best model
-    model = train_model
-    model.backbone.load_state_dict(torch.load(os.path.join(args.save_dir, f"best_backbone_{args.model}.pth"), weights_only=True))
-    model.eval()
+    model_class.model = train_model
+    model_class.model.backbone.load_state_dict(torch.load(os.path.join(args.save_dir, f"best_backbone_{args.model}.pth"), weights_only=True))
+    model_class.model.eval()
 
-    train_activ_dict = get_activations_and_targets(model, args.dataset, 'train', args)
-    val_activ_dict = get_activations_and_targets(model, args.dataset, 'val', args)
-    test_activ_dict = get_activations_and_targets(model, args.dataset, 'test', args)
+    train_activ_dict = get_activations_and_targets(model_class, args.dataset, 'train', args)
+    val_activ_dict = get_activations_and_targets(model_class, args.dataset, 'val', args)
+    test_activ_dict = get_activations_and_targets(model_class, args.dataset, 'test', args)
     train_targets = train_activ_dict['targets']
     val_targets = val_activ_dict['targets']
     test_targets = test_activ_dict['targets']
-        
+    
     with torch.no_grad():
         train_y = torch.LongTensor(train_targets)
         indexed_train_ds = IndexedTensorDataset(train_activ_dict['concepts'], train_y)

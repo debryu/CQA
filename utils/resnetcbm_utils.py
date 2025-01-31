@@ -2,7 +2,6 @@ from loguru import logger
 import torch
 from tqdm import tqdm
 from datasets import get_dataset
-from utils.transforms import transform_basic
 from loguru import logger
 import copy 
 import math
@@ -13,16 +12,19 @@ import torch.utils.model_zoo as model_zoo
 from torch.optim import lr_scheduler
 from torchvision.models.resnet import Bottleneck, BasicBlock
 
-def get_activations_and_targets(model,dataset_name,split,args):
+def get_activations_and_targets(model_class,dataset_name,split,args):
     logger.debug(f'Retrieving labels of {dataset_name} {split}...')
-    data = get_dataset(ds_name=dataset_name,split=split,transform=transform_basic)
+    transform = model_class.get_transform(split=split)
+    data = get_dataset(ds_name=dataset_name,split=split,transform=transform)
     n_examples = len(data)
     targets = []
     concepts = [] 
     gt_concetps = []
+    model = model_class.model
     model.eval().to(args.device)
     for i in tqdm(range(len(data)), desc='Running model'):
         img, c, label = data[i]
+        label = label.long()
         img = img.to(args.device)
         with torch.no_grad():
             output = model(img.unsqueeze(0))
@@ -220,7 +222,7 @@ class DeepLearningModel(torch.nn.Module):
         return all_metrics
 
     def setup_optimizers(self, optimizer_name, optimizer_kwargs, scheduler_kwargs):
-
+        optimizer_name = optimizer_name.lower()
         # https://github.com/pytorch/pytorch/issues/679
         if optimizer_name == 'sgd':
             self.optimizer = optim.SGD(filter(lambda p: p.requires_grad, self.parameters()),

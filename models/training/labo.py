@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from utils.lfcbm_utils import cos_similarity_cubed_single, save_activations, get_save_names, get_targets_only
 from datasets import get_dataset
-from config import folder_naming_convention, ACTIVATIONS_PATH
+from config import folder_naming_convention, ACTIVATIONS_PATH, LABELS
 
 def train(args):
     if not os.path.exists(args.save_dir):
@@ -32,7 +32,7 @@ def train(args):
         concepts = f.read().split("\n")
 
     concepts_dict = {'raw_concepts': concepts, 'raw_dim': len(concepts)}
-    classes = get_dataset(args.dataset).classes
+    classes = LABELS[args.dataset.split("_")[0]]
     logger.debug(f"Classes: {classes}")
     logger.debug(f"Concepts: {concepts_dict}")
 

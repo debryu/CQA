@@ -8,11 +8,12 @@ import pickle
 import os
 def query_llama(dl, queries, folder, args, range=None):
     output = [] 
+    split = os.path.basename(folder)
     n_images = len(dl)
     n_concepts = len(queries)
     c_tensors = []
     avg_invalid_responses = 0
-    for i, (image, concept, label) in enumerate(tqdm(dl,desc="Querying images")):
+    for i, (image, concept, label) in enumerate(tqdm(dl,desc=f"Querying images {split}")):
         if range is not None:
             if i < range[0]:
                 continue

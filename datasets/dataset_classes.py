@@ -17,7 +17,7 @@ import pickle
 # Also could make those customizable from the terminal
 
 # TODO: Remove celeba self.classes
-
+# TODO: Remove self.has_concepts deprecated
 # TODO: Common class:
 #       - get_train_val_loader
 #       - get_test_loader
@@ -64,8 +64,8 @@ class Cifar10Custom(Dataset):
         return x, -1, y
 
 
-class CelebACustom(CelebA):
-    name = "celeba"
+class CelebAOriginal(CelebA):
+    name = "celeba_original"
     def __init__(
         self,
         root,
@@ -105,6 +105,52 @@ class CelebACustom(CelebA):
         y = y[self.label]
         return x, concepts, y
     
+class CelebA(Subset):
+    name = "celeba"
+    def __init__(
+        self,
+        root,
+        split: str = "train",
+        target_type = "attr",
+        transform = None,
+        target_transform = None,
+        download: bool = False,
+        concepts: list = None,
+        label:int = 20,
+        train_subset_indices = [0,25000],
+        val_subset_indices = [0,-1],
+        test_subset_indices = [0,-1],
+    ) -> None:
+        '''
+        concepts: list of concepts to use, by choosing the indexes of the celeba attributes
+        label: the index of the attribute to use as label
+        '''
+        assert type(label) == int # label must be an integer
+        self.has_concepts = True
+        if split == 'train':
+            self.data = CelebAOriginal(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
+            self.classes = self.data.classes
+            if train_subset_indices[1] == -1:
+                train_subset_indices[1] = len(self.data)
+            self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
+            super().__init__(self.data,self.subset_indices)
+        elif split == 'val' or split == 'valid':
+            self.data = CelebAOriginal(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
+            self.classes = self.data.classes
+            if val_subset_indices[1] == -1:
+                val_subset_indices[1] = len(self.data)
+            self.subset_indices = range(val_subset_indices[0],val_subset_indices[1])
+            #self.subset_indices = range(0,len(self.data))
+            super().__init__(self.data,self.subset_indices)
+        elif split == 'test':
+            self.data = CelebAOriginal(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
+            self.classes = self.data.classes
+            if test_subset_indices[1] == -1:
+                test_subset_indices[1] = len(self.data)
+            self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
+            #self.subset_indices = range(0,len(self.data))
+            super().__init__(self.data,self.subset_indices)
+
 class CelebAMini(Subset):
     name = "celeba_mini"
     def __init__(
@@ -117,9 +163,9 @@ class CelebAMini(Subset):
         download: bool = False,
         concepts: list = None,
         label:int = 20,
-        train_subset_indices = [0,40000],
-        val_subset_indices = [0,-1],
-        test_subset_indices = [0,-1],
+        train_subset_indices = [0,1000],
+        val_subset_indices = [0,1000],
+        test_subset_indices = [0,1000],
     ) -> None:
         '''
         concepts: list of concepts to use, by choosing the indexes of the celeba attributes
@@ -127,32 +173,27 @@ class CelebAMini(Subset):
         '''
         assert type(label) == int # label must be an integer
         self.has_concepts = True
-        if split == 'val':
-            split = 'valid'
         if split == 'train':
-            self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
+            self.data = CelebAOriginal(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
             self.classes = self.data.classes
             if train_subset_indices[1] == -1:
                 train_subset_indices[1] = len(self.data)
-            else:
-                self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
+            self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
             super().__init__(self.data,self.subset_indices)
         elif split == 'val' or split == 'valid':
-            self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
+            self.data = CelebAOriginal(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
             self.classes = self.data.classes
             if val_subset_indices[1] == -1:
                 val_subset_indices[1] = len(self.data)
-            else:
-                self.subset_indices = range(val_subset_indices[0],val_subset_indices[1])
+            self.subset_indices = range(val_subset_indices[0],val_subset_indices[1])
             #self.subset_indices = range(0,len(self.data))
             super().__init__(self.data,self.subset_indices)
         elif split == 'test':
-            self.data = CelebACustom(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
+            self.data = CelebAOriginal(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)
             self.classes = self.data.classes
             if test_subset_indices[1] == -1:
                 test_subset_indices[1] = len(self.data)
-            else:
-                self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
+            self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
             #self.subset_indices = range(0,len(self.data))
             super().__init__(self.data,self.subset_indices)
         
@@ -181,14 +222,17 @@ class SHAPES3D_Custom(torch.utils.data.Dataset):
         image = self.images[idx]
         concepts = self.concepts[idx]
         labels = self.labels[idx]
-        return self.transform(image), concepts, labels
+        if self.transform is not None:
+            return self.transform(image), torch.tensor(concepts), torch.tensor(labels)
+        else: 
+            return image, concepts, int(labels)
 
     def __len__(self):
         return len(self.images)
 
 class SHAPES3DMini(Subset):
     name = "shapes3d_mini"
-    def __init__(self, root='./data/shapes3d', split='train', transform = None, args=None, subset_indices = [0,10000]):
+    def __init__(self, root='./data/shapes3d', split='train', transform = None, args=None, subset_indices = [0,1000]):
         self.data = SHAPES3D_Custom(root=root,split=split,transform=transform,args=args)
         self.classes = self.data.classes
         self.subset_indices = range(subset_indices[0],subset_indices[1])
@@ -272,4 +316,4 @@ class CUBDataset(Dataset):
             img = self.transform(img)
         attr_label = img_data['attribute_label']
             
-        return img, torch.tensor(attr_label), torch.tensor(class_label)
+        return img, attr_label, class_label
