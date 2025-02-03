@@ -6,7 +6,7 @@ from tqdm import tqdm
 import torch
 import pickle
 import os
-def query_llama(dl, queries, folder, args, range=None):
+def query_llama(dl, queries, folder, args, range=None, missing=None):
     output = [] 
     split = os.path.basename(folder)
     n_images = len(dl)
@@ -19,6 +19,9 @@ def query_llama(dl, queries, folder, args, range=None):
                 continue
             if i > range[1]:
                 break
+        if missing is not None:
+            if i not in missing:
+                continue
         #logger.debug(f"img shape:{image.shape}, concept shape:{concept.shape}, label shape:{label.shape}")
         image = image[0]
         #plt.imshow(image)

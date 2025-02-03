@@ -73,10 +73,9 @@ def create_or_load_oracle_ds(args):
                 # Save the concepts in a single .pth file
                 concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth"), indexes=used_indexes)
             else:
-                asd #Temporary, make it so that it queries only the missing ones
                 logger.info(f"Creating or loading oracle dataset for {args.dataset} from {start} to {end}")
                 
-                path = CONCEPT_SETS[ds]
+                path = CONCEPT_SETS[ds_name]
                 with open(path, 'r') as f:
                     concepts = f.read().split("\n")
                 queries = []
@@ -85,7 +84,7 @@ def create_or_load_oracle_ds(args):
                 logger.debug(queries)
                 
                 dl = DataLoader(ds, batch_size=1, shuffle=False)
-                llm_concepts = query_llama(dl, queries, os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), args=args, range=[start,end])
+                llm_concepts = query_llama(dl, queries, os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), args=args, range=[start,end], missing=missing)
                 
                 if len(os.listdir(current_folder)) == len(ds):
                     concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth"))
