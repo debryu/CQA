@@ -39,6 +39,7 @@ def train(args):
 
     d_train = args.dataset + "_train"
     d_val = args.dataset + "_val"
+    d_test = args.dataset + "_test"
 
     #save activations and get save_paths
     for d_probe in [d_train, d_val]:
@@ -51,37 +52,50 @@ def train(args):
                                             args.feature_layer,d_train, args.concept_set, "avg", args.activation_dir)
     val_target_save_name, val_clip_save_name, text_save_name =  get_save_names(args.clip_name, args.backbone,
                                             args.feature_layer, d_val, args.concept_set, "avg", args.activation_dir)
+    test_target_save_name, test_clip_save_name, text_save_name =  get_save_names(args.clip_name, args.backbone,
+                                            args.feature_layer, d_test, args.concept_set, "avg", args.activation_dir)
     
+    logger.debug(f"Target save name: {target_save_name}")
+    logger.debug(f"Clip save name: {clip_save_name}")
+    logger.debug(f"Text save name: {text_save_name}")
+
     #load features
     with torch.no_grad():
         target_features = torch.load(target_save_name, map_location="cpu", weights_only=True).float()
-        val_target_features = torch.load(val_target_save_name, map_location="cpu", weights_only=True).float()
 
         image_features = torch.load(clip_save_name, map_location="cpu", weights_only=True).float()
-        #image_features /= torch.norm(image_features, dim=1, keepdim=True)
+        image_features /= torch.norm(image_features, dim=1, keepdim=True)
 
         val_image_features = torch.load(val_clip_save_name, map_location="cpu", weights_only=True).float()
-        #val_image_features /= torch.norm(val_image_features, dim=1, keepdim=True)
+        val_image_features /= torch.norm(val_image_features, dim=1, keepdim=True)
+
+        test_image_features = torch.load(test_clip_save_name, map_location="cpu", weights_only=True).float()
+        test_image_features /= torch.norm(test_image_features, dim=1, keepdim=True)
 
         text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()
-        #text_features /= torch.norm(text_features, dim=1, keepdim=True)
+        text_features /= torch.norm(text_features, dim=1, keepdim=True)
         
         clip_features = image_features @ text_features.T            # Namely, P
         val_clip_features = val_image_features @ text_features.T    # Namely, P_val
+        test_clip_features = test_image_features @ text_features.T
 
         del image_features, text_features, val_image_features
     
     train_targets = get_targets_only(args.dataset, "train")
     val_targets = get_targets_only(args.dataset, "val")
-   
+    test_targets = get_targets_only(args.dataset, "test")
+
     with torch.no_grad():
         train_y = torch.LongTensor(train_targets)
         indexed_train_ds = IndexedTensorDataset(clip_features, train_y)
         val_y = torch.LongTensor(val_targets)
         val_ds = TensorDataset(val_clip_features,val_y)
+        test_y = torch.LongTensor(test_targets)
+        test_ds = TensorDataset(test_clip_features,test_y)
 
     indexed_train_loader = DataLoader(indexed_train_ds, batch_size=args.saga_batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.saga_batch_size, shuffle=False)
+    test_loader = DataLoader(test_ds,batch_size=args.saga_batch_size, shuffle=False)
 
     # Make linear model and zero initialize
     n_concepts_final_layer = clip_features.shape[1]
@@ -100,7 +114,7 @@ def train(args):
 
     # Solve the GLM path
     output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
-                      val_loader=val_loader, do_zero=False, metadata=metadata, n_ex=len(target_features), n_classes = len(classes))
+                      val_loader=val_loader, test_loader=test_loader, do_zero=False, metadata=metadata, n_ex=len(target_features), n_classes = len(classes))
     W_g = output_proj['path'][0]['weight']
     b_g = output_proj['path'][0]['bias']
     
