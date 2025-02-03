@@ -321,7 +321,7 @@ def save_activations(clip_name, target_name, target_layers, d_probe,
     #setup data
     data_c = get_dataset(ds_name=ds_name, split=split, transform=clip_preprocess)
     data_t = get_dataset(ds_name=ds_name, split=split, transform=target_preprocess)
-
+    
     with open(concept_set, 'r') as f: 
         words = (f.read()).split('\n')
     text = clip.tokenize(["{}".format(word) for word in words]).to(device)

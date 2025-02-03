@@ -83,7 +83,7 @@ def train(args):
         
         clip_features = image_features @ text_features.T            # Namely, P
         val_clip_features = val_image_features @ text_features.T    # Namely, P_val
-        test_clip_features = test_image_features @ text_features.T
+        #test_clip_features = test_image_features @ text_features.T
 
         del image_features, text_features, val_image_features, test_image_features
     
@@ -157,7 +157,7 @@ def train(args):
         #if i==10:       #TEMPORARY TO MAKE IT FASTER
         #    break
     proj_layer.load_state_dict({"weight":best_weights})
-    logger.info("Best step:{}, Avg val similarity:{:.4f}".format(best_step, -best_val_loss.cpu()))
+    logger.debug("Best step:{}, Avg val similarity:{:.4f}".format(best_step, -best_val_loss.cpu()))
     
     #delete concepts that are not interpretable
     with torch.no_grad():
