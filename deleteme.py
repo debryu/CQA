@@ -2,7 +2,9 @@ from datasets import get_dataset
 from torch.utils.data import Subset
 import torch
 
-cel = get_dataset('celeba', split = 'train')
+cel = get_dataset('celeba', split = 'test')
+print(len(cel))
+asd
 id2 = range(25000,len(cel))
 id1 = range(25000)
 

@@ -17,6 +17,7 @@ def get_activations_and_targets(model_class,dataset_name,split,args):
     transform = model_class.get_transform(split=split)
     data = get_dataset(ds_name=dataset_name,split=split,transform=transform)
     n_examples = len(data)
+    logger.debug(f"Number of examples: {n_examples}")
     targets = []
     concepts = [] 
     gt_concetps = []

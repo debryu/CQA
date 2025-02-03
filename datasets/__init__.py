@@ -20,6 +20,7 @@ def get_dataset(ds_name,**kwargs):
   if ds_name not in classes:
     raise ValueError(f"Dataset {ds_name} not found in dataset_classes")
   else:
+    logger.debug(f"Getting dataset {ds_name} with kwargs {kwargs}")
     base = ds_name.split("_")[0]
     if 'root' in kwargs:
       return classes[ds_name](**kwargs)

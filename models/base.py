@@ -32,7 +32,7 @@ class BaseModel():
             transforms.Resize((224,224)),
         ])
 
-    def get_loader(self, split = 'test'):
+    def get_loader(self, split):
       logger.debug(f"Using default method get_loader for {split}")
       transform = self.get_transform(split=split)
       dataset_name = self.args.dataset

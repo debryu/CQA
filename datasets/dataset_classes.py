@@ -148,7 +148,7 @@ class CelebA(Subset):
             if test_subset_indices[1] == -1:
                 test_subset_indices[1] = len(self.data)
             #print(len(self.data))
-            self.subset_indices = range(train_subset_indices[0],test_subset_indices[1])
+            self.subset_indices = range(test_subset_indices[0],test_subset_indices[1])
             #self.subset_indices = range(0,len(self.data))
             super().__init__(self.data,self.subset_indices)
 
@@ -237,7 +237,6 @@ class SHAPES3D_Custom(Subset):
         elif split == 'val' or split == 'valid':
             indexes = range(5000)
         elif split == 'test':
-            self.split = 'test'
             indexes = range(96000)
         else:
             raise NotImplementedError

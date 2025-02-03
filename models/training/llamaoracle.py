@@ -109,10 +109,10 @@ def train(args):
             
             if split == 'train':
                 self.llama_concepts = self.train_concepts
-                
             elif split == 'val' or split == 'valid':
                 self.llama_concepts = self.val_concepts
-                
+            else:
+                raise NotImplementedError(f"Split {split} not implemented")
             #print(self.llama_concepts.shape)
             #print(len(self.original_ds))
             assert len(self.original_ds)==len(self.llama_concepts)
@@ -132,7 +132,7 @@ def train(args):
     classes[new_temp_args.dataset] = LlamaAnnotatedDataset
     logger.debug(f"Available datasets: {classes}")
     final_args = train_cbm(new_temp_args)
-    args.update(final_args)
+    vars(args).update(vars(final_args))
     
     return args
 
