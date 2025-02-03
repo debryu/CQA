@@ -78,14 +78,14 @@ def query_llama(dl, queries, folder, args, range=None):
     #return c_tensors
 
 
-def unify_pickles(folder, save_path):
+def unify_pickles(folder, save_path, indexes):
     # Save the concepts in a single .pth file
     concepts_ds = []
-    for sample in tqdm(os.listdir(folder), desc = 'Storing concepts in a single file'):
-        sample_path = os.path.join(folder, sample)
+    for sample_id in tqdm(indexes, desc = 'Storing concepts in a single file'):
+        sample_path = os.path.join(folder, f"query_{sample_id}.pkl")
         with open(sample_path, 'rb') as f:
             c_tensor = pickle.load(f)
-        print(c_tensor)
+        #print(c_tensor)
         concepts_ds.append(c_tensor)
     concepts_ds = torch.stack(concepts_ds, dim=0)
     logger.debug(f"Final shape: {concepts_ds.shape}. Concepts saved as {save_path}")

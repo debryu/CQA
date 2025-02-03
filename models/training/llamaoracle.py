@@ -13,6 +13,21 @@ from config import folder_naming_convention, ACTIVATIONS_PATH, CONCEPT_SETS, LLM
 from utils.llamaoracle_utils import query_llama, unify_pickles
 from models.training.resnetcbm import train as train_cbm
 
+def check_content(folder, indexes):
+    missing = list(range(indexes[0], indexes[1]))
+    for file in tqdm(os.listdir(folder), desc="Checking folder content"):
+        id = file.split("_")[-1]
+        if id in missing:
+            missing.remove(id)
+    
+    if len(missing) == 0:
+        return True
+    else:
+        for m in missing:
+            logger.debug(f"Missing {m} from {folder}")
+        return False
+
+
 def create_or_load_oracle_ds(args):
     ds = args.dataset.split("_")[0]
     start = args.start_idx
@@ -24,7 +39,6 @@ def create_or_load_oracle_ds(args):
         os.makedirs(os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), exist_ok=True)
         current_folder = os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split)
 
-        
         # Get the original dataset
         ds = args.dataset.split("_")[0]
         t = transforms.Compose([
@@ -36,16 +50,22 @@ def create_or_load_oracle_ds(args):
         if end is None:
             end = len(original_ds)  # One more just to be sure
         
+        # Celeba train is the only exception since we have a weird train (from 25000 to 50000 instead of the beginning)
+        if ds == 'celeba' and split == 'train':
+            used_indexes = [25000,50000]
+        else:
+            used_indexes = [0,len(ds)]
+
         # Check if the dataset exists
-        if os.path.exists(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth")):
+        if os.path.exists(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth")):
             # Load
-            logger.debug(f"Loading {os.path.join(LLM_GENERATED_ANNOTATIONS,f'{args.dataset}_{split}.pth')}")
+            logger.debug(f"Loading {os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth")}")
             concepts_dict[split] = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth"), weights_only=True) 
             print(concepts_dict[split].shape)
-        elif len(os.listdir(current_folder)) == len(original_ds):
+        elif check_content(current_folder, used_indexes):
             logger.debug(f"Unifying inside {os.path.join(LLM_GENERATED_ANNOTATIONS,f'{args.dataset}_{split}.pth')}")
             # Save the concepts in a single .pth file
-            concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth"))
+            concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth"), indexes=used_indexes)
         else:
             logger.info(f"Creating or loading oracle dataset for {args.dataset} from {start} to {end}")
             
