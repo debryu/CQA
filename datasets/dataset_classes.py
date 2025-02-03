@@ -117,7 +117,7 @@ class CelebA(Subset):
         download: bool = False,
         concepts: list = None,
         label:int = 20,
-        train_subset_indices = [0,25000],
+        train_subset_indices = [25000,50000],
         val_subset_indices = [0,-1],
         test_subset_indices = [0,-1],
     ) -> None:
@@ -147,7 +147,8 @@ class CelebA(Subset):
             self.classes = self.data.classes
             if test_subset_indices[1] == -1:
                 test_subset_indices[1] = len(self.data)
-            self.subset_indices = range(train_subset_indices[0],train_subset_indices[1])
+            print(len(self.data))
+            self.subset_indices = range(train_subset_indices[0],test_subset_indices[1])
             #self.subset_indices = range(0,len(self.data))
             super().__init__(self.data,self.subset_indices)
 
