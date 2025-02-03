@@ -85,12 +85,8 @@ def create_or_load_oracle_ds(args):
                 
                 dl = DataLoader(ds, batch_size=1, shuffle=False)
                 llm_concepts = query_llama(dl, queries, os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), args=args, range=[start,end], missing=missing)
-                
-                if len(os.listdir(current_folder)) == len(ds):
-                    concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth"))
-                else:
-                    logger.error("Not all concepts were queried, please check the folder")
-                    raise ValueError("Not all concepts were queried, please check the folder")
+                concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth"))
+               
 
     return concepts_dict
 

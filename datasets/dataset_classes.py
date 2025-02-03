@@ -54,7 +54,7 @@ class Cifar10Custom(Dataset):
             else:
                 raise ValueError(f"Split {split} not recognized")
         else:
-            self.data = CIFAR10(root=root,train=False,transform=transform,target_transform=target_transform,download=download)
+            self.data = torchvision.datasets.CIFAR10(root=root,train=False,transform=transform,target_transform=target_transform,download=download)
         
     def __len__(self):
         return len(self.data)
@@ -200,13 +200,10 @@ class CelebAMini(Subset):
         
       
       
-      
-      
-class SHAPES3D_Custom(torch.utils.data.Dataset):
-    name = "shapes3d"
+class SHAPES3DOriginal(torch.utils.data.Dataset):
+    name = "shapes3d_original"
     def __init__(self, root='./data/shapes3d', split='train', transform = None, args=None):
         self.base_path = os.path.join(root, '3dshapes.h5')
-        self.has_concepts = True
         # Check if the dataset is already created
         if not os.path.exists(os.path.join(root, split+'_split_imgs.npy')) or not os.path.exists(os.path.join(root, split+'_split_cl.npy')):
             create_dataset(root, args)
@@ -229,7 +226,23 @@ class SHAPES3D_Custom(torch.utils.data.Dataset):
             return image, concepts, int(labels)
 
     def __len__(self):
-        return len(self.images)
+        return len(self.images)      
+      
+class SHAPES3D_Custom(Subset):
+    name = "shapes3d"
+    def __init__(self, root='./data/shapes3d', split='train', transform = None, args=None):
+        # Check if a custom dataset partition is available
+        if split == 'train':
+            split = 'val'
+            indexes = range(0,5000)
+            indexes = range(0,50)
+        elif split == 'val' or split == 'valid':
+            split = 'train'
+            indexes = range(48000)
+            indexes = range(50)
+        else:
+            indexes = range(96000)
+        super().__init__(SHAPES3DOriginal(root=root,split=split,transform=transform,args=args),indexes)
 
 class SHAPES3DMini(Subset):
     name = "shapes3d_mini"
