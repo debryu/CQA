@@ -15,6 +15,8 @@ for name, cls in inspect.getmembers(dataset_classes, inspect.isclass):
 logger.debug(f"Available datasets: {classes}")
 #probe_dataset, probe_split, probe_dataset_root_dir, preprocess_fn, split_idxs=None
 def get_dataset(ds_name,**kwargs):
+  if ds_name.endswith("_oracle") and kwargs['split'] == 'test':
+    ds_name = ds_name.split("_")[0]
   if ds_name not in classes:
     raise ValueError(f"Dataset {ds_name} not found in dataset_classes")
   else:
