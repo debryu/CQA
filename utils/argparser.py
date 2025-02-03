@@ -132,7 +132,7 @@ def parse_llamaoracle_args(parser,args):
   ds = args.dataset.split("_")[0]
   parser.add_argument("-device", type=str, default="cuda", help="Which device to use")
   parser.add_argument("-batch_size", type=int, default=512, help="Batch size used when saving model/CLIP activations")
-  parser.add_argument("-saga_batch_size", type=int, default=256, help="Batch size used when fitting final layer")
+  
   parser.add_argument("-backbone", type=str, default="resnet18", help="Which ResNet pretrained model to use as backbone", choices=['resnet18', 'resnet34'])
   parser.add_argument("-unfreeze", type=int, default=1, help="Number of conv layers to unfreeze from the pretrained model")
   parser.add_argument("-num_c", type=int, default=64, help="Number of concepts to learn when unsupervised")

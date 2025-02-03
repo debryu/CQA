@@ -79,9 +79,11 @@ def query_llama(dl, queries, folder, args, range=None):
 
 
 def unify_pickles(folder, save_path, indexes):
+    logger.debug(f"Unifying pickles {indexes}")
     # Save the concepts in a single .pth file
     concepts_ds = []
-    for sample_id in tqdm(indexes, desc = 'Storing concepts in a single file'):
+    files = range(indexes[0], indexes[1])
+    for sample_id in tqdm(files, desc = 'Storing concepts in a single file'):
         sample_path = os.path.join(folder, f"query_{sample_id}.pkl")
         with open(sample_path, 'rb') as f:
             c_tensor = pickle.load(f)

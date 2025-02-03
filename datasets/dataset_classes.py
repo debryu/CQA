@@ -1,4 +1,4 @@
-from torchvision.datasets import CelebA, CIFAR10
+import torchvision
 from torch.utils.data import Subset, Dataset
 import torch
 from tqdm import tqdm
@@ -45,11 +45,11 @@ class Cifar10Custom(Dataset):
         self.classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
         if split == 'train':
             if split == 'train':
-                self.data = CIFAR10(root=root,train=True,transform=transform,target_transform=target_transform,download=download)
+                self.data = torchvision.datasets.CIFAR10(root=root,train=True,transform=transform,target_transform=target_transform,download=download)
                 self.data = Subset(self.data,range(int(len(self.data)*train_val_split)))
                 
             elif split == 'val' or split == 'valid':
-                self.data = CIFAR10(root=root,train=True,transform=transform,target_transform=target_transform,download=download)
+                self.data = torchvision.datasets.CIFAR10(root=root,train=True,transform=transform,target_transform=target_transform,download=download)
                 self.data = Subset(self.data,range(int(len(self.data)*train_val_split),len(self.data)))
             else:
                 raise ValueError(f"Split {split} not recognized")
@@ -64,7 +64,7 @@ class Cifar10Custom(Dataset):
         return x, -1, y
 
 
-class CelebAOriginal(CelebA):
+class CelebAOriginal(torchvision.datasets.CelebA):
     name = "celeba_original"
     def __init__(
         self,
@@ -118,7 +118,7 @@ class CelebA(Subset):
         concepts: list = None,
         label:int = 20,
         train_subset_indices = [25000,50000],
-        val_subset_indices = [0,-1],
+        val_subset_indices = [0,5000],
         test_subset_indices = [0,-1],
     ) -> None:
         '''
@@ -147,7 +147,7 @@ class CelebA(Subset):
             self.classes = self.data.classes
             if test_subset_indices[1] == -1:
                 test_subset_indices[1] = len(self.data)
-            print(len(self.data))
+            #print(len(self.data))
             self.subset_indices = range(train_subset_indices[0],test_subset_indices[1])
             #self.subset_indices = range(0,len(self.data))
             super().__init__(self.data,self.subset_indices)
