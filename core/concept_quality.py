@@ -125,13 +125,12 @@ def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False
     logger.debug(f"Loading args from {folder_path}")
     args.load_dir = folder_path
     args = load_args(args)
-    CQA.args = args
-
     # Load model
     model = get_model(args)
     logger.debug(f"Model loaded: {model}")
     # args are uploaded in the model, so no need to pass them again
     CQA = CONCEPT_QUALITY(model)
+    CQA.args = args
     CQA.main_args = main_args
     logger.info(f"Running the model on {model.args.dataset} {split}...")
     # Run the model to get all the outputs
