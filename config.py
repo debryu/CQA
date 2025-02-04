@@ -40,3 +40,24 @@ def folder_naming_convention(args):
   Available flags:
   '''
   return f"{args.model}_{args.dataset}_{args.date}_{args.time}"
+
+METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy']
+
+'''#####################################
+   ###       AVAILABLE METRICS       ###
+   #####################################
+
+    LABEL RELATED:
+    - label_accuracy
+    - label_f1
+
+    CONCEPT RELATED:
+    - avg_concept_accuracy
+    - concept_accuracy
+    - concept_f1
+    - concept_classification_reports
+    
+    DCI RELATED:
+    - disentanglement
+    - completeness
+'''

@@ -9,8 +9,9 @@ from models import get_model
 from loguru import logger
 from sklearn.metrics import classification_report as cr
 from metrics.common import get_conceptWise_metrics
-from config import LABELS
+from config import LABELS, METRICS
 from utils.args_utils import load_args
+import wandb
 
 # TODO: Fix TEMP and add the correct target names
 # TODO: Count Imbalances for each ds once
@@ -30,7 +31,8 @@ class CONCEPT_QUALITY():
     else:
         self.concept_freq = json.load(open(os.path.join(self.model.args.load_dir,"train_concept_freq.txt")))
         self.label_freq = json.load(open(os.path.join(self.model.args.load_dir,"train_label_freq.txt")))
-    
+    self.metrics = {}
+
   def store_output(self, split = 'test'):
     logger.debug(f"Storing output for {split} split.")
     self.output = self.model.run(split)
@@ -51,12 +53,16 @@ class CONCEPT_QUALITY():
     ds_name = self.model.args.dataset.split('_')[0]
     target_names = LABELS[ds_name]
     self.classification_report = cr(y_true, y_pred, target_names=target_names, output_dict=True)
+    self.metrics['label_accuracy'] = self.classification_report['accuracy']
+    self.metrics['label_f1'] = self.classification_report['macro avg']['f1-score']
     self.save()
     return self.classification_report
 
-  def metrics(self):
-    get_conceptWise_metrics(self.output, self.model.args, self.main_args, theshold=0.5)
-    return
+  def concept_metrics(self):
+    m = get_conceptWise_metrics(self.output, self.model.args, self.main_args, theshold=0.5)
+    self.metrics.update(m)
+    self.save()
+    return m
   
   def DCI(self,train_test_ratio=0.7,max_samples:int = None, level = 'INFO'):
     # Split the data in train-test
@@ -77,12 +83,27 @@ class CONCEPT_QUALITY():
     dci = DCI_wrapper(representation_train, concept_gt_train, representation_val, concept_gt_val, level)
     dci['train_test_ratio'] = train_test_ratio
     self.dci = dci
+    self.metrics['disentanglement'] = dci['disentanglement']
+    self.metrics['completeness'] = dci['completeness']
     self.save()
     return dci
 
   def save_im_as_img(self, path,file_name, plot_title):
     save_IM_as_img(path, file_name, plot_title, self.dci['importance_matrix'])
     return 
+  
+  def log_metrics(self): 
+    logging_metrics = {}
+    for metric in METRICS:
+      if metric in self.metrics:
+        logging_metrics[metric] = self.metrics[metric]
+      else:
+        logger.warning(f"####  Available metrics:")
+        for m in self.metrics:
+          logger.warning(f"# - {m}")
+        raise NotImplementedError(f"Metric {metric} not implemented.")
+    wandb.log(logging_metrics)
+    return logging_metrics
 
 def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False):
   logger.debug(f"Initializing CQA from {folder_path}")
@@ -93,6 +114,10 @@ def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False
     with open(folder_path + '/CQA.pkl', 'rb') as f:
       CQA = pickle.load(f)
     CQA.main_args = main_args
+    try:
+      logger.debug(CQA.metrics)
+    except:
+      CQA.metrics = {}
   else:
     main_args.run_name = os.path.basename(folder_path)
     logger.info("CQA not found. Initializing CQA from scratch.")
@@ -100,7 +125,8 @@ def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False
     logger.debug(f"Loading args from {folder_path}")
     args.load_dir = folder_path
     args = load_args(args)
-  
+    CQA.args = args
+
     # Load model
     model = get_model(args)
     logger.debug(f"Model loaded: {model}")

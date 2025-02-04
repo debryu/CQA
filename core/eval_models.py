@@ -4,23 +4,42 @@ from config import SAVED_MODELS_FOLDER
 from models import get_model
 from config import SAVED_MODELS_FOLDER
 from core.concept_quality import initialize_CQA
+from utils.args_utils import load_args
 
-
+# TODO: remove temporary fixes  asdg5etr and 42ohdfsa
 def eval_model(args):
     try:
         CQA = initialize_CQA(args.load_dir, args, split = 'test', force_from_scratch = args.force)
         logger.debug(f"Args: {CQA.main_args}")
         if CQA.main_args.wandb:
             import wandb
-            wandb.init(project="Concept Quality Analysis", id=args.run_idp, resume="allow")
+            # If it throws an error, it is because the args are not correctly loaded
+            # Just uncomment and run again once, it will work later (then comment again)
+            # asdg5etr
+            args = load_args(args)
+            CQA.args = args
+            CQA.save()
+            #
+            logger.info(f"Initializing wandb with run id: {args.run_id}")
+            try:
+                wandb.init(project="Concept Quality Analysis", id=args.run_id, resume="allow")
+                wandb.define_metric("concept_accuracy", step_metric="manual_step")
+            except:
+                logger.error("Error in initializing wandb")
+                logger.warning("Disabling wandb")
+                CQA.main_args.wandb = False
             # 28-13-25
             # Define the metric to allow manual step logging
-            wandb.define_metric("concept_accuracy", step_metric="manual_step")
+            
 
         if CQA.main_args.dci or CQA.main_args.all:
             logger.info("Computing DCI...")
-            if CQA.dci is not None and not CQA.main_args.force:
+            if CQA.dci is not None:
                 print(CQA.dci)
+                # 42ohdfsa
+                CQA.metrics['disentanglement'] = CQA.dci['disentanglement']
+                CQA.metrics['completeness'] = CQA.dci['completeness']
+                #
             else:
                 try:
                     CQA.DCI(0.8)
@@ -32,7 +51,7 @@ def eval_model(args):
                     logger.error(traceback.format_exc())
             
         if CQA.main_args.concept_metrics or CQA.main_args.all:
-            CQA.metrics()
+            CQA.concept_metrics()
             CQA.save()
 
         if CQA.main_args.label_metrics or CQA.main_args.all:
@@ -44,6 +63,7 @@ def eval_model(args):
             #print(CQA.output)
         
         if CQA.main_args.wandb:
+            CQA.log_metrics()
             wandb.finish()
 
     except Exception as e:
