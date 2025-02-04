@@ -42,7 +42,7 @@ def train(args):
     d_test = args.dataset + "_test"
 
     #save activations and get save_paths
-    for d_probe in [d_train, d_val]:
+    for d_probe in [d_train, d_val, d_test]:
         save_activations(clip_name = args.clip_name, target_name = args.backbone, 
                                target_layers = [args.feature_layer], d_probe = d_probe,
                                concept_set = args.concept_set, batch_size = args.batch_size, 
