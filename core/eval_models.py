@@ -5,6 +5,7 @@ from models import get_model
 from config import SAVED_MODELS_FOLDER
 from core.concept_quality import initialize_CQA
 from utils.args_utils import load_args
+import shutil
 
 # TODO: remove temporary fixes  asdg5etr and 42ohdfsa
 def eval_model(args):
@@ -67,6 +68,15 @@ def eval_model(args):
             wandb.finish()
 
     except Exception as e:
+        # Try only loading the args. If it is not possible, delete the foder!
+        try:
+            load_args(args)
+        except:
+            logger.warning(f"Removing {args.load_dir}")
+            asd
+            shutil.rmtree(args.load_dir)
+            asd
+
         logger.error(f"Error in initializing CQA {args.load_dir}:\n{e}")
         logger.error(traceback.format_exc())
         
