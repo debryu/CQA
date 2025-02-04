@@ -74,10 +74,9 @@ class CONCEPT_QUALITY():
       concept_gt_val = concept_gt_val[:max_samples]
 
     logger.debug(f"Computing DCI with train_test_ratio={train_test_ratio}...")
-    #dci = DCI_wrapper(representation_train, concept_gt_train, representation_val, concept_gt_val, level)
-    #dci['train_test_ratio'] = train_test_ratio
-    #self.dci = dci
-    dci = None
+    dci = DCI_wrapper(representation_train, concept_gt_train, representation_val, concept_gt_val, level)
+    dci['train_test_ratio'] = train_test_ratio
+    self.dci = dci
     self.save()
     return dci
 
