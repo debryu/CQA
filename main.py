@@ -15,7 +15,7 @@ def main():
   parser.add_argument("-all", action="store_true", help="Compute all possible metrics")
   parser.add_argument("-wandb", action="store_true", help="Logs on wandb")
   parser.add_argument("-dci", action="store_true", help="Compute DCI")
-  parser.add_argument("-concept_wise_metrics", action="store_true", help="Compute metrics concept wise")
+  parser.add_argument("-concept_metrics", action="store_true", help="Compute metrics concept wise")
   parser.add_argument("-label_metrics", action="store_true", help="Compute classification report")
   parser.add_argument("-logger", type=str, default="DEBUG", help="Logging level", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
   #parser.add_argument("-model", type=str, help="Model to use", choices=["vlgcbm", "lfcbm","resnetcbm"])

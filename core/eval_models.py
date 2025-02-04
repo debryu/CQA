@@ -17,21 +17,25 @@ def eval_model(args):
             # Define the metric to allow manual step logging
             wandb.define_metric("concept_accuracy", step_metric="manual_step")
 
-        if CQA.main_args.dci:
+        if CQA.main_args.dci or CQA.main_args.all:
             logger.info("Computing DCI...")
-            try:
-                CQA.DCI(0.8)
-                print(CQA.dci['disentanglement'])
-                CQA.save_im_as_img(args.load_dir, "importance_matrix", "Importance Matrix")
-                CQA.save()
-            except:
-                logger.error("Error in computing DCI")
+            if CQA.dci is not None and not CQA.main_args.force:
+                print(CQA.dci)
+            else:
+                try:
+                    CQA.DCI(0.8)
+                    print(CQA.dci['disentanglement'])
+                    CQA.save_im_as_img(args.load_dir, "importance_matrix", "Importance Matrix")
+                    CQA.save()
+                except:
+                    logger.error("Error in computing DCI")
+                    logger.error(traceback.format_exc())
             
-        if CQA.main_args.concept_wise_metrics:
+        if CQA.main_args.concept_metrics or CQA.main_args.all:
             CQA.metrics()
             CQA.save()
 
-        if CQA.main_args.label_metrics:
+        if CQA.main_args.label_metrics or CQA.main_args.all:
             CQA.get_classification_report()
             print(CQA.classification_report)
             CQA.save()
