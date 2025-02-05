@@ -95,6 +95,12 @@ class CONCEPT_QUALITY():
   def log_metrics(self): 
     logging_metrics = {}
     for metric in METRICS:
+      #########################################
+      if metric == 'concept_accuracy':  # This is because the accuracies needs to be logged separately
+          for i,acc in enumerate(self.metrics['concept_accuracy']):
+              wandb.log({f"concept_accuracy":acc, "manual_step":i})
+          continue
+      #########################################
       if metric in self.metrics:
         logging_metrics[metric] = self.metrics[metric]
       else:
