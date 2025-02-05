@@ -25,7 +25,12 @@ def eval_model(arguments):
             logger.info(f"Initializing wandb with run id: {arguments.run_id}")
             try:
                 wandb.init(project="Concept Quality Analysis", id=arguments.run_id, resume="allow")
+                wandb.define_metric("single_step")
                 wandb.define_metric("concept_accuracy", step_metric="manual_step")
+                wandb.define_metric("label_accuracy", step_metric="single_step")
+                wandb.define_metric("label_f1", step_metric="single_step")
+                wandb.define_metric("disentanglement", step_metric="single_step")
+                pass
             except:
                 if False: #'timed out' in str(e):
                     logger.error("wandb.init has timed out. Creating a new run.")
@@ -63,12 +68,12 @@ def eval_model(arguments):
             
         if CQA.main_args.concept_metrics or CQA.main_args.all:
             CQA.concept_metrics()
-            CQA.save()
+            #CQA.save()
 
         if CQA.main_args.label_metrics or CQA.main_args.all:
             CQA.get_classification_report()
             print(CQA.classification_report)
-            CQA.save()
+            #CQA.save()
             #CQA.metrics()
             #print(CQA.metrics())
             #print(CQA.output)

@@ -50,8 +50,9 @@ def get_conceptWise_metrics(output, model_args, main_args, theshold=0.0):
         concept_f1.append(cr['macro avg']['f1-score'])
         concept_accuracies.append(cr['accuracy'])
         #print(classification_report(concept_gt_list[i], concept_pred_list[i], target_names=tn))
-        if main_args.wandb:
-            wandb.log({f"concept_accuracy":cr['accuracy'], "manual_step":i})
+        #if main_args.wandb:
+        #    print("logging",{f"concept_accuracy":cr['accuracy'], "manual_step":i})
+        #   wandb.log({f"concept_accuracy":cr['accuracy'], "manual_step":i})
    
     return {'avg_concept_accuracy': sum(concept_accuracies)/len(concept_accuracies), 
             'concept_accuracy':concept_accuracies, 
