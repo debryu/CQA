@@ -105,7 +105,8 @@ class CONCEPT_QUALITY():
     wandb.log(logging_metrics)
     return logging_metrics
 
-def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False):
+def initialize_CQA(folder_path, args, split = 'test'):
+  force_from_scratch = args.force
   logger.debug(f"Initializing CQA from {folder_path}")
   main_args = copy.deepcopy(args)
   # Check if CQA (Concept Quality Analysis) is already present
@@ -114,6 +115,8 @@ def initialize_CQA(folder_path, args, split = 'test', force_from_scratch = False
     with open(folder_path + '/CQA.pkl', 'rb') as f:
       CQA = pickle.load(f)
     CQA.main_args = main_args
+    CQA.args = load_args(args)
+    CQA.save()
     try:
       logger.debug(CQA.metrics)
     except:
