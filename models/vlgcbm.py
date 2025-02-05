@@ -30,6 +30,10 @@ class _Model(torch.nn.Module):
         out_dict = {'unnormalized_concepts':concept_logits, 'concepts':concept_probs, 'preds':logits}
         return out_dict
 
+    def load(self):
+        # Already loading in the initialization
+        pass
+
     def get_loss(self, args):
         return NotImplementedError('No loss implemented')
         if args.dataset in ['shapes3d', 'dsprites', 'kandinsky','mnist']:
@@ -71,12 +75,4 @@ class VLGCBM(BaseModel):
   def train(self, loader):
     pass
 
-  def get_transform(self):
-    t = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Resize((224,224)),
-            ]
-        )
-    return t
     

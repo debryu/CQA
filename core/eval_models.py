@@ -21,9 +21,8 @@ def eval_model(arguments):
             #args = load_args(args)
             #CQA.args = args
             #CQA.save()
-            #
-            logger.info(f"Initializing wandb with run id: {arguments.run_id}")
             try:
+                logger.info(f"Initializing wandb with run id: {arguments.run_id}")
                 wandb.init(project="Concept Quality Analysis", id=arguments.run_id, resume="allow")
                 wandb.define_metric("single_step")
                 wandb.define_metric("concept_accuracy", step_metric="manual_step")
@@ -31,13 +30,15 @@ def eval_model(arguments):
                 wandb.define_metric("label_f1", step_metric="single_step")
                 wandb.define_metric("disentanglement", step_metric="single_step")
                 pass
-            except:
-                if False: #'timed out' in str(e):
-                    logger.error("wandb.init has timed out. Creating a new run.")
-                    wandb.init(project="Concept Quality Analysis", name=CQA.main_args.load_dir,
-                    # Track hyperparameters and run metadata
-                    config=args)
+            except Exception as e:
+                if 'timed out' in str(e) or "has no attribute 'run_id'" in str(e):
+                    logger.error("Cannot load existing run. Creating a new run.")
+                    wandb.init(project="Concept Quality Analysis", name=CQA.main_args.load_dir,config=arguments)
+                    wandb.define_metric("single_step")
                     wandb.define_metric("concept_accuracy", step_metric="manual_step")
+                    wandb.define_metric("label_accuracy", step_metric="single_step")
+                    wandb.define_metric("label_f1", step_metric="single_step")
+                    wandb.define_metric("disentanglement", step_metric="single_step")
 
                 else:
                     logger.error("Error in initializing wandb")
