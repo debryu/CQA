@@ -125,8 +125,6 @@ def train(args):
         for concept in concepts[1:]:
             f.write('\n'+concept)
     
-    torch.save(train_mean, os.path.join(save_name, "proj_mean.pt"))
-    torch.save(train_std, os.path.join(save_name, "proj_std.pt"))
     torch.save(W_g, os.path.join(save_name, "W_g.pt"))
     torch.save(b_g, os.path.join(save_name, "b_g.pt"))
 
