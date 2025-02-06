@@ -13,7 +13,7 @@ out_dict = {
       }
 '''
 
-def get_conceptWise_metrics(output, model_args, main_args, theshold=0.0):
+def get_conceptWise_metrics(output, model_args, main_args, threshold=0.0):
     if main_args.wandb:
         import wandb
     ds = model_args.dataset.split("_")[0]
@@ -24,7 +24,7 @@ def get_conceptWise_metrics(output, model_args, main_args, theshold=0.0):
     concept_gt = concept_gt.cpu()
 
     # Setting concepts to 1 if the value is above the threshold, 0 otherwise
-    concept_pred = (concept_pred > theshold).float()
+    concept_pred = (concept_pred > threshold).float()
     logger.debug(f"Number of concetps: {concept_preds.shape[1]}")
     
      #print(concept_pred.T.shape)

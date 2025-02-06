@@ -29,6 +29,7 @@ def eval_model(arguments):
                 wandb.define_metric("label_accuracy", step_metric="single_step")
                 wandb.define_metric("label_f1", step_metric="single_step")
                 wandb.define_metric("disentanglement", step_metric="single_step")
+                wandb.define_metric("avg_concept_accuracy", step_metric="single_step")
                 pass
             except Exception as e:
                 if 'timed out' in str(e) or "has no attribute 'run_id'" in str(e):
@@ -39,6 +40,7 @@ def eval_model(arguments):
                     wandb.define_metric("label_accuracy", step_metric="single_step")
                     wandb.define_metric("label_f1", step_metric="single_step")
                     wandb.define_metric("disentanglement", step_metric="single_step")
+                    wandb.define_metric("avg_concept_accuracy", step_metric="single_step")
 
                 else:
                     logger.error("Error in initializing wandb")
@@ -94,6 +96,7 @@ def eval_model(arguments):
             if str(confirmation) == "yes" or str(confirmation) == "y":
                 shutil.rmtree(arguments.load_dir)
                 logger.info(f"Deleted {arguments.load_dir}")
+                return
             else:
                 logger.info("Deletion canceled.")
         
