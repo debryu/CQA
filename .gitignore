@@ -11,6 +11,7 @@ models/VLG/saved_models
 models/LFCBM/saved_models
 models/LABO/saved_models
 
+config
 config.py
 # Wandb
 wandb/
