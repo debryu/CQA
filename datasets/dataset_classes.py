@@ -233,7 +233,7 @@ class SHAPES3D_Custom(Subset):
     def __init__(self, root='./data/shapes3d', split='train', transform = None, args=None):
         # Check if a custom dataset partition is available
         if split == 'train':
-            indexes = range(38000)
+            indexes = range(48000)
         elif split == 'val' or split == 'valid':
             indexes = range(5000)
         elif split == 'test':
