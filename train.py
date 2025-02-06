@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument("-config", type=str, default=None, help="Path to a config file for setting all the parameters in a json file")
     parser.add_argument("-save_dir", type=str, default=None, help="Folder where to save the model")
     parser.add_argument("-wandb", action="store_true", help="Use wandb for logging")
-    parser.add_argument("-seed", type=int, help="Set the random seed")
+    parser.add_argument("-seed", type=int, default=42, help="Set the random seed")
     # Parse known arguments to determine the value of --model
     args, remaining_args = parser.parse_known_args()
     
