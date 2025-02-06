@@ -21,6 +21,8 @@ except ImportError:
 def get_backbone_function(model, x):
     return model.features(x)
 
+# TODO: correct transform loader depending on the trainig
+
 class _Model(torch.nn.Module):
     def __init__(self, backbone_name, clip_features, W_g, b_g, args, device="cuda"): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
         super().__init__()
@@ -36,11 +38,15 @@ class _Model(torch.nn.Module):
         self.clip_features = clip_features.to(device)
         self.final = torch.nn.Linear(in_features = W_g.shape[1], out_features=W_g.shape[0]).to(device)
         self.final.load_state_dict({"weight":W_g, "bias":b_g})
+        #self.proj_mean = proj_mean
+        #self.proj_std = proj_std
         self.concepts = None
+        
         
     def forward(self, x):
         concepts = self.clip_features[x]
         proj_c = concepts   # Temp
+        #proj_c = (x-self.proj_mean)/self.proj_std
         y = self.final(proj_c)
         out_dict = {'unnormalized_concepts':concepts, 'concepts':proj_c, 'preds':y}
         return out_dict
@@ -84,15 +90,16 @@ class LABO(BaseModel):
         with torch.no_grad():
             target_features = torch.load(target_save_name, map_location="cpu", weights_only=True).float()
             image_features = torch.load(clip_save_name, map_location="cpu", weights_only=True).float()
-            #image_features /= torch.norm(image_features, dim=1, keepdim=True)
+            image_features /= torch.norm(image_features, dim=1, keepdim=True)
             text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()
-            #text_features /= torch.norm(text_features, dim=1, keepdim=True)
+            text_features /= torch.norm(text_features, dim=1, keepdim=True)
             
             clip_features = image_features @ text_features.T            # Namely, P
             del image_features, text_features
 
         W_g = torch.load(os.path.join(self.load_dir, "W_g.pt"), map_location=self.args.device, weights_only=True)
         b_g = torch.load(os.path.join(self.load_dir, "b_g.pt"), map_location=self.args.device, weights_only=True)
+    
         self.model = _Model(args.backbone, clip_features, W_g, b_g, args, args.device)
         
 
@@ -128,12 +135,9 @@ class LABO(BaseModel):
 
 
     def get_transform(self,split):
-        c = Compose([
-                Resize((224,224), interpolation=BICUBIC),
-                CenterCrop((224,224)),
-                ToTensor(),
-                Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
-            ])
-        return c
+        # Must use the same transform used for training
+        import utils.clip as clip
+        _, preprocess = clip.load(self.args.clip_name, device=self.args.device)
+        return preprocess
 
 

@@ -92,14 +92,10 @@ class LFCBM(BaseModel):
         pass
     
     def get_transform(self,split):
-        c = Compose([
-                Resize((224,224), interpolation=BICUBIC),
-                CenterCrop((224,224)),
-                ToTensor(),
-                Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
-            ])
-
-        return c
+        # Must use the same transform used for training
+        import utils.clip as clip
+        _, preprocess = clip.load(self.args.clip_name, device=self.args.device)
+        return preprocess
 
     def test(self, loader):
         acc_mean = 0.0
