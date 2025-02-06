@@ -1,6 +1,7 @@
 from metrics.dci import DCI_wrapper
 from utils.dci_utils import save_IM_as_img
 import pickle
+import torch
 import os
 import json
 import copy
@@ -9,7 +10,8 @@ from models import get_model
 from loguru import logger
 from sklearn.metrics import classification_report as cr
 from metrics.common import get_conceptWise_metrics
-from config import LABELS, METRICS
+from utils.eval_models import train_LR_on_concepts
+from config import LABELS, METRICS, REQUIRES_SIGMOID
 from utils.args_utils import load_args
 import wandb
 
@@ -58,8 +60,14 @@ class CONCEPT_QUALITY():
     self.save()
     return self.classification_report
 
-  def concept_metrics(self):
-    m = get_conceptWise_metrics(self.output, self.model.args, self.main_args, theshold=0.5)
+  def concept_metrics(self, threshold = 0.5):
+    _output = copy.deepcopy(self.output)
+    if self.args.model in REQUIRES_SIGMOID:
+      logger.info("Training Logistic Regression on Concepts")
+      W,B = train_LR_on_concepts(_output['concepts_pred'],_output['concepts_gt'])
+      _output['concepts_pred'] *= W
+      _output['concepts_pred'] += B
+    m = get_conceptWise_metrics(_output, self.model.args, self.main_args, threshold=threshold)
     self.metrics.update(m)
     self.save()
     return m
