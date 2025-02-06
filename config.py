@@ -13,7 +13,7 @@ ACTIVATIONS_PATH = {
 }
 
 DATASETS_FOLDER_PATHS = {
-  "celeba":"/mnt/cimec-storage6/users/nicola.debole/home/data/celeba_manual_download" ,
+  "celeba":"C:\\Users\\debryu\\Desktop\\VS_CODE\\HOME\\ML\\work\\VLG-CBM\\datasets\\celeba_manual_download" ,
   "shapes3d":"./data/shapes3d/",
   "cifar10":"./data/cifar10/",
   "cub":"./data/cub/"
@@ -41,7 +41,7 @@ def folder_naming_convention(args):
   '''
   return f"{args.model}_{args.dataset}_{args.date}_{args.time}"
 
-METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', 'avg_concept_accuracy']
+METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', 'avg_concept_accuracy', 'avg_concept_f1']
 
 '''#####################################
    ###       AVAILABLE METRICS       ###
@@ -53,6 +53,7 @@ METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', '
 
     CONCEPT RELATED:
     - avg_concept_accuracy
+    - avg_concept_f1
     - concept_accuracy
     - concept_f1
     - concept_classification_reports
