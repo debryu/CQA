@@ -71,6 +71,7 @@ def query_llama(dl, queries, folder, args, range=None, missing=None):
         avg_invalid_responses += ir
         logger.warning(f"Average invalid responses: {avg_invalid_responses/(i+1)}")
         c_array = torch.tensor(c_array)
+        logger.debug(f"Result: {c_array}")
         pickle.dump(c_array, open(os.path.join(folder,f"query_{i}.pkl"),"wb"))
         #print(c_array)
         #c_tensors.append(c_array)
