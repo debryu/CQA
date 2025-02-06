@@ -57,6 +57,7 @@ def get_conceptWise_metrics(output, model_args, main_args, threshold=0.0):
     return {'avg_concept_accuracy': sum(concept_accuracies)/len(concept_accuracies), 
             'concept_accuracy':concept_accuracies, 
             'concept_classification_reports':classification_reports,
+            'avg_concept_f1': sum(concept_f1)/len(concept_f1),
             'concept_f1':concept_f1}
 
 def get_metrics(output, requested:list[str]):

@@ -30,6 +30,7 @@ def eval_model(arguments):
                 wandb.define_metric("label_f1", step_metric="single_step")
                 wandb.define_metric("disentanglement", step_metric="single_step")
                 wandb.define_metric("avg_concept_accuracy", step_metric="single_step")
+                wandb.define_metric("avg_concept_f1", step_metric="single_step")
                 pass
             except Exception as e:
                 if 'timed out' in str(e) or "has no attribute 'run_id'" in str(e):
@@ -41,6 +42,7 @@ def eval_model(arguments):
                     wandb.define_metric("label_f1", step_metric="single_step")
                     wandb.define_metric("disentanglement", step_metric="single_step")
                     wandb.define_metric("avg_concept_accuracy", step_metric="single_step")
+                    wandb.define_metric("avg_concept_f1", step_metric="single_step")
 
                 else:
                     logger.error("Error in initializing wandb")
@@ -84,7 +86,7 @@ def eval_model(arguments):
         if CQA.main_args.wandb:
             CQA.log_metrics()
             wandb.finish()
-
+        
     except Exception as e:
         # Try only loading the args. If it is not possible, delete the foder!
         try:

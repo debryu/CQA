@@ -41,7 +41,7 @@ def folder_naming_convention(args):
   '''
   return f"{args.model}_{args.dataset}_{args.date}_{args.time}"
 
-METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', 'avg_concept_accuracy']
+METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', 'avg_concept_accuracy', 'avg_concept_f1']
 
 '''#####################################
    ###       AVAILABLE METRICS       ###
@@ -53,6 +53,7 @@ METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', '
 
     CONCEPT RELATED:
     - avg_concept_accuracy
+    - avg_concept_f1
     - concept_accuracy
     - concept_f1
     - concept_classification_reports
