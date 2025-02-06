@@ -218,6 +218,8 @@ class SHAPES3DOriginal(torch.utils.data.Dataset):
         
     def __getitem__(self, idx):
         image = self.images[idx]
+        # Convert the image to PIL img
+        image = Image.fromarray(image)
         concepts = self.concepts[idx]
         labels = self.labels[idx]
         if self.transform is not None:
