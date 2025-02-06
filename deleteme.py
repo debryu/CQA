@@ -1,6 +1,11 @@
 from datasets import get_dataset
 from torch.utils.data import Subset
 import torch
+import pickle 
+
+a = pickle.load(open("./data/llava-phi3_annotations/shapes3d/val/query_1.pkl",'rb'))
+print(a.shape)
+sd
 
 cel = get_dataset('celeba', split = 'test')
 print(len(cel))

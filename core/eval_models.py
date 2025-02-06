@@ -35,7 +35,8 @@ def eval_model(arguments):
             except Exception as e:
                 if 'timed out' in str(e) or "has no attribute 'run_id'" in str(e):
                     logger.error("Cannot load existing run. Creating a new run.")
-                    wandb.init(project="Concept Quality Analysis", name=CQA.main_args.load_dir,config=arguments)
+                    wandb_run = wandb.init(project="Concept Quality Analysis", name=CQA.main_args.load_dir,config=arguments)
+                    CQA.args.run_id = wandb_run.id
                     wandb.define_metric("single_step")
                     wandb.define_metric("concept_accuracy", step_metric="manual_step")
                     wandb.define_metric("label_accuracy", step_metric="single_step")
@@ -86,7 +87,8 @@ def eval_model(arguments):
         if CQA.main_args.wandb:
             CQA.log_metrics()
             wandb.finish()
-        
+        CQA.save()
+
     except Exception as e:
         # Try only loading the args. If it is not possible, delete the foder!
         try:
