@@ -38,7 +38,7 @@ def query_llama(dl, queries, folder, args, range=None, missing=None):
         ir = 0
         for obj in queries:
             text = f"Does the image contain {obj}?"
-            
+            logger.debug(f"N concepts:{len(queries)}. Query: {text}")
             messages = [
                 {"role": "user", "content": f"Does the image contain {obj}?", "images": [llama_img]},
                 {"role": "user", "content": f"Please reply only with 'Yes' or 'No'."},

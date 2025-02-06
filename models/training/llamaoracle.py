@@ -44,7 +44,7 @@ def create_or_load_oracle_ds(args):
         t = transforms.Compose([
         transforms.Lambda(lambda x: np.array(x))  # Ensure it's a NumPy array
         ])
-        ds_name = args.dataset
+        ds_name = args.dataset.split("_")[0]
         ds = get_dataset(ds_name, split=split, transform=t)
         if start is None:
             start = 0
@@ -78,8 +78,15 @@ def create_or_load_oracle_ds(args):
                 with open(path, 'r') as f:
                     concepts = f.read().split("\n")
                 queries = []
-                for c in concepts:
-                    queries.append(f"a person with {c}")
+                if ds_name == 'celeba':
+                    for c in concepts:
+                        queries.append(f"a person with {c}")
+                if ds_name == 'shapes3d':
+                    for c in concepts:
+                        queries.append(f"a {c}")
+                else:
+                    for c in concepts:
+                        queries.append(c)
                 logger.debug(queries)
                 
                 dl = DataLoader(ds, batch_size=1, shuffle=False)
