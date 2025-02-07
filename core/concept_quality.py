@@ -112,6 +112,7 @@ class CONCEPT_QUALITY():
   
   def log_metrics(self): 
     logging_metrics = {}
+    log_c_accuracies = False
     for metric in METRICS:
       #########################################
       if metric == 'concept_accuracy':  # This is because the accuracies needs to be logged separately
@@ -121,6 +122,7 @@ class CONCEPT_QUALITY():
           for x,y in zip(x_values,y_values):
               w_table.add_data(x,y)
           logging_metrics['concept_accuracy_table'] = w_table
+          log_c_accuracies = True
           #for i,acc in enumerate(self.metrics['concept_accuracy']):
           #    wandb.log({f"concept_accuracy":acc, "manual_step":i})
       #########################################
@@ -136,6 +138,9 @@ class CONCEPT_QUALITY():
       logging_metrics['DCI'] = wandb.Image(os.path.join(self.main_args.load_dir,"importance_matrix.png"))
     
     wandb.log(logging_metrics)  
+    if log_c_accuracies:
+        for i,acc in enumerate(self.metrics['concept_accuracy']):
+            wandb.log({f"concept_accuracy":acc, "manual_step":i})
     return logging_metrics
 
 def initialize_CQA(folder_path, args, split = 'test'):
