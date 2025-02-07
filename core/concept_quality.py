@@ -1,5 +1,5 @@
 from metrics.dci import DCI_wrapper
-from utils.dci_utils import save_IM_as_img
+from utils.dci_utils import save_IM_as_img, heatmap
 import pickle
 import torch
 import os
@@ -61,6 +61,14 @@ class CONCEPT_QUALITY():
     return self.classification_report
 
   def concept_metrics(self, threshold = 0.5):
+    if self.output['concepts_gt'].dim() == 1:
+      if self.output['concepts_gt'][0] == -1:
+        # This means that there are no ground truth concepts
+        logger.warning("No ground truth concepts found. Skipping concept metrics.")
+        return None
+      else:
+        raise ValueError("Concepts in the wrong format.")
+      
     _output = copy.deepcopy(self.output)
     if self.args.model in REQUIRES_SIGMOID:
       logger.info("Training Logistic Regression on Concepts")
@@ -97,7 +105,9 @@ class CONCEPT_QUALITY():
     return dci
 
   def save_im_as_img(self, path,file_name, plot_title):
-    save_IM_as_img(path, file_name, plot_title, self.dci['importance_matrix'])
+    img_path = os.path.join(path,file_name)
+    heatmap(self.dci['importance_matrix'],self.model.args.dataset.split("_")[0], plot_title=plot_title, save_path=img_path)
+    #save_IM_as_img(path, file_name, plot_title, self.dci['importance_matrix'])
     return 
   
   def log_metrics(self): 
@@ -105,9 +115,14 @@ class CONCEPT_QUALITY():
     for metric in METRICS:
       #########################################
       if metric == 'concept_accuracy':  # This is because the accuracies needs to be logged separately
-          for i,acc in enumerate(self.metrics['concept_accuracy']):
-              wandb.log({f"concept_accuracy":acc, "manual_step":i})
-          continue
+          x_values = range(len(self.metrics['concept_accuracy']))
+          y_values = self.metrics['concept_accuracy']
+          w_table = wandb.Table(columns = ["concept","concept_accuracy"])
+          for x,y in zip(x_values,y_values):
+              w_table.add_data(x,y)
+          logging_metrics['concept_accuracy_table'] = w_table
+          #for i,acc in enumerate(self.metrics['concept_accuracy']):
+          #    wandb.log({f"concept_accuracy":acc, "manual_step":i})
       #########################################
       if metric in self.metrics:
         logging_metrics[metric] = self.metrics[metric]
@@ -116,7 +131,11 @@ class CONCEPT_QUALITY():
         for m in self.metrics:
           logger.warning(f"# - {m}")
         raise NotImplementedError(f"Metric {metric} not implemented.")
-    wandb.log(logging_metrics)
+    if os.path.exists(os.path.join(self.main_args.load_dir,"importance_matrix.png")):
+      logger.debug(f"Logging DCI image from {self.main_args.load_dir}")
+      logging_metrics['DCI'] = wandb.Image(os.path.join(self.main_args.load_dir,"importance_matrix.png"))
+    
+    wandb.log(logging_metrics)  
     return logging_metrics
 
 def initialize_CQA(folder_path, args, split = 'test'):

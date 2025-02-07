@@ -2,7 +2,7 @@ from loguru import logger
 import os, traceback
 from config import SAVED_MODELS_FOLDER
 from models import get_model
-from config import SAVED_MODELS_FOLDER
+from config import SAVED_MODELS_FOLDER, CONCEPTS_NOT_AVAILABLE
 from core.concept_quality import initialize_CQA
 from utils.args_utils import load_args
 import shutil
@@ -53,10 +53,15 @@ def eval_model(arguments):
             # 28-13-25
             # Define the metric to allow manual step logging
             
+        # Set the criteria for every metric
+        criteria_dci = CQA.args.dataset not in CONCEPTS_NOT_AVAILABLE
+        criteria_concept_metrics = CQA.args.dataset not in CONCEPTS_NOT_AVAILABLE
+        criteria_label_metrics = True
 
-        if CQA.main_args.dci or CQA.main_args.all:
+        if (CQA.main_args.dci or CQA.main_args.all) and criteria_dci:
             logger.info("Computing DCI...")
             if CQA.dci is not None:
+                CQA.save_im_as_img(CQA.main_args.load_dir, "importance_matrix.png", "DCI Importance Matrix")
                 print(CQA.dci)
                 # 42ohdfsa
                 CQA.metrics['disentanglement'] = CQA.dci['disentanglement']
@@ -66,18 +71,20 @@ def eval_model(arguments):
                 try:
                     CQA.DCI(0.8)
                     print(CQA.dci['disentanglement'])
-                    CQA.save_im_as_img(CQA.main_args.load_dir, "importance_matrix", "Importance Matrix")
+                    CQA.save_im_as_img(CQA.main_args.load_dir,  "importance_matrix.png", "DCI Importance Matrix")
                     CQA.save()
                 except:
                     logger.error("Error in computing DCI")
                     logger.error(traceback.format_exc())
             
-        if CQA.main_args.concept_metrics or CQA.main_args.all:
-            CQA.concept_metrics()
+        if (CQA.main_args.concept_metrics or CQA.main_args.all) and criteria_concept_metrics:
+            if 'avg_concept_accuracy' not in CQA.metrics:
+                CQA.concept_metrics()
             #CQA.save()
 
-        if CQA.main_args.label_metrics or CQA.main_args.all:
-            CQA.get_classification_report()
+        if (CQA.main_args.label_metrics or CQA.main_args.all) and criteria_label_metrics:
+            if 'label_accuracy' not in CQA.metrics:
+                CQA.get_classification_report()
             print(CQA.classification_report)
             #CQA.save()
             #CQA.metrics()
