@@ -10,7 +10,7 @@ import copy
 # TODO: remove temporary fixes  asdg5etr and 42ohdfsa
 def eval_model(arguments):
     try:
-        print("Eval model", arguments)
+        logger.info("Eval model", arguments)
         CQA = initialize_CQA(arguments.load_dir, arguments, split = 'test')
         #logger.debug(f"main.py args: {CQA.main_args}")
         if CQA.main_args.wandb:
@@ -21,6 +21,12 @@ def eval_model(arguments):
             #args = load_args(args)
             #CQA.args = args
             #CQA.save()
+
+            # First, check if the run_id is already saved in CQA
+            if hasattr(CQA,'run_id'):
+                if CQA.run_id is not None:
+                    arguments.run_id = CQA.run_id
+            # Then try resuming a previous wandb run
             try:
                 logger.info(f"Initializing wandb with run id: {arguments.run_id}")
                 wandb.init(project="Concept Quality Analysis", id=arguments.run_id, resume="allow")
@@ -32,11 +38,16 @@ def eval_model(arguments):
                 wandb.define_metric("avg_concept_accuracy", step_metric="single_step")
                 wandb.define_metric("avg_concept_f1", step_metric="single_step")
                 pass
+            # If this is not possible, then create a new one.
             except Exception as e:
                 if 'timed out' in str(e) or "has no attribute 'run_id'" in str(e):
                     logger.error("Cannot load existing run. Creating a new run.")
-                    wandb_run = wandb.init(project="Concept Quality Analysis", name=CQA.main_args.load_dir,config=arguments)
-                    CQA.args.run_id = wandb_run.id
+                    if str(arguments.load_dir).endswith("/") or str(arguments.load_dir).endswith("\\"):
+                        wandb_run = wandb.init(project="Concept Quality Analysis", name=arguments.load_dir,config=arguments)
+                    else:
+                        wandb_run = wandb.init(project="Concept Quality Analysis", name=os.path.basename(arguments.load_dir),config=arguments)
+                    
+                    CQA.run_id = wandb_run.id    
                     wandb.define_metric("single_step")
                     wandb.define_metric("concept_accuracy", step_metric="manual_step")
                     wandb.define_metric("label_accuracy", step_metric="single_step")
@@ -50,9 +61,7 @@ def eval_model(arguments):
                     logger.error(traceback.format_exc())
                     logger.warning("Disabling wandb")
                     CQA.main_args.wandb = False
-            # 28-13-25
-            # Define the metric to allow manual step logging
-            
+            logger.debug(f"Run id: {CQA.run_id}")
 
         if CQA.main_args.dci or CQA.main_args.all:
             logger.info("Computing DCI...")
@@ -103,6 +112,7 @@ def eval_model(arguments):
                 return
             else:
                 logger.info("Deletion canceled.")
+                CQA.save()
         
         logger.error(f"Error in initializing CQA {arguments.load_dir}:\n{e}")
         logger.error(traceback.format_exc())
@@ -114,6 +124,7 @@ def eval_model(arguments):
             logger.info(f"Deleted {arguments.load_dir}")
         else:
             logger.info("Deletion canceled.")
+            CQA.save()
     return 
     
 
