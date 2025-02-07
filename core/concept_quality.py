@@ -23,6 +23,7 @@ class CONCEPT_QUALITY():
     self.model = model
     self.output = None
     self.dci = None
+    self.run_id = None
     self.classification_report = None
     self.CQA_save_path = os.path.join(self.model.args.load_dir ,'CQA.pkl')
     if not os.path.exists(os.path.join(self.model.args.load_dir,"train_concept_freq.txt")) or self.model.args.force:
@@ -43,6 +44,7 @@ class CONCEPT_QUALITY():
 
   def save(self):
     pickle.dump(self, open(self.CQA_save_path, "wb"))
+    print(self.args)
     logger.info(f"Saved to {self.CQA_save_path}")
     return
 

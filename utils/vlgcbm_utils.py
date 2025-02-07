@@ -147,6 +147,7 @@ def get_filtered_concepts_and_counts(
     label_dir="outputs",
     use_allones: bool = False,
     seed: int = 42,
+    remove_never_seen=False
 ):
     # remove concepts that are not present in the dataset
     dataloader = get_concept_dataloader(
@@ -171,10 +172,16 @@ def get_filtered_concepts_and_counts(
         raw_concepts_count += data[1].sum(dim=0)
         
     # remove concepts that are not present in the dataset
+    
     raw_concepts_count = raw_concepts_count.numpy()
-    concepts = [concept for concept, count in zip(raw_concepts, raw_concepts_count) if count > 0]
-    concept_counts = [count for _, count in zip(raw_concepts, raw_concepts_count) if count > 0]
-    filtered_concepts = [concept for concept, count in zip(raw_concepts, raw_concepts_count) if count == 0]
+    if remove_never_seen:
+        concepts = [concept for concept, count in zip(raw_concepts, raw_concepts_count) if count > 0]
+        concept_counts = [count for _, count in zip(raw_concepts, raw_concepts_count) if count > 0]
+        filtered_concepts = [concept for concept, count in zip(raw_concepts, raw_concepts_count) if count == 0]
+    else:
+        concepts = [concept for concept, count in zip(raw_concepts, raw_concepts_count)]
+        concept_counts = [count for _, count in zip(raw_concepts, raw_concepts_count)]
+        filtered_concepts = [concept for concept, count in zip(raw_concepts, raw_concepts_count)]
     print(f"Filtered {len(raw_concepts) - len(concepts)} concepts")
 
     return concepts, concept_counts, filtered_concepts
@@ -527,7 +534,6 @@ class ConceptDataset(Dataset):
         bbxs = [bbx for bbx in bbxs if bbx["logit"] > self.confidence_threshold]
         for bbx in bbxs:
             bbx["label"] = format_concept(bbx["label"])
-
         # get one hot vector of concepts
         concept_one_hot = [1 if self._find_in_list(concept, bbxs)[0] else 0 for concept in self.concepts]
         concept_one_hot = torch.tensor(concept_one_hot, dtype=torch.float)
@@ -547,15 +553,19 @@ class ConceptDataset(Dataset):
         bbxs = [bbx for bbx in bbxs if bbx["logit"] > self.confidence_threshold]
         for bbx in bbxs:
             bbx["label"] = format_concept(bbx["label"])
-
+        
         # get one hot vector of concepts
         concept_one_hot = [1 if self._find_in_list(concept, bbxs)[0] else 0 for concept in self.concepts]
         concept_one_hot = torch.tensor(concept_one_hot, dtype=torch.float)
+        #print(concept_one_hot)
         return concept_one_hot
 
     def _find_in_list(self, concept: str, bbxs):
+        #for bb in bbxs:
+        #    print(bb["label"].strip().replace(" ","_"), "- C:", concept.strip().replace(" ","_"))
         # randomly pick a bounding box
-        matched_bbxs = [bbx for bbx in bbxs if concept == bbx["label"].replace(" ", "")]
+        # .replace(" _","_").replace(" _","_")
+        matched_bbxs = [bbx for bbx in bbxs if concept.strip().replace(" ","_") == bbx["label"].strip().replace(" ","_")]
         return len(matched_bbxs) > 0, matched_bbxs
 
     def _get_data(self, idx):

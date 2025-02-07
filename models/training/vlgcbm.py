@@ -6,11 +6,14 @@ from utils.vlgcbm_utils import get_classes, get_concepts, get_filtered_concepts_
 from utils.vlgcbm_utils import get_loss, get_final_layer_dataset, load_concept_and_count, save_filtered_concepts, save_concept_count
 from utils.vlgcbm_utils import train_cbl, train_sparse_final, test_model, per_class_accuracy    
 
+#TODO: fix 12u29nr2
+
 def train(args):
 
     # Load classes
     classes = get_classes(args.dataset)
 
+    logger.debug(f"VLG classes: {classes}")
     # Load Backbone model
     if args.backbone.startswith("clip_"):
         backbone = BackboneCLIP(
@@ -19,15 +22,21 @@ def train(args):
     else:
         backbone = Backbone(args.backbone, args.feature_layer, args.device)
 
+    conc_filter = True
     if args.skip_concept_filter:
-            logger.info("Skipping concept filtering")
-            concepts, concept_counts = load_concept_and_count(
-                os.path.dirname(args.concept_set), filter_file=args.filter_set
-            )
+            conc_filter=False
+            #logger.info("Skipping concept filtering")
+            #concepts, concept_counts = load_concept_and_count(
+            #    os.path.dirname(args.concept_set), filter_file=args.filter_set
+            #)
+    if False:  # Ugly, but works. Fix it in the future 12u29nr2
+        pass  
     else:
         # filter concepts
         logger.info("Filtering concepts")
         raw_concepts = get_concepts(args.concept_set, args.filter_set)
+        logger.debug(f"Raw concepts n.{len(raw_concepts)}: {raw_concepts}")
+
         (
             concepts,
             concept_counts,
@@ -43,6 +52,7 @@ def train(args):
             label_dir=args.annotation_dir,
             use_allones=args.allones_concept,
             seed=args.seed,
+            remove_never_seen=conc_filter
         )
 
         # save concept counts
