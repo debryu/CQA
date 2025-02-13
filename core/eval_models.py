@@ -57,7 +57,7 @@ def eval_model(arguments):
         criteria_dci = CQA.args.dataset not in CONCEPTS_NOT_AVAILABLE
         criteria_concept_metrics = CQA.args.dataset not in CONCEPTS_NOT_AVAILABLE
         criteria_label_metrics = True
-
+        print(CQA.metrics)
         if (CQA.main_args.dci or CQA.main_args.all) and criteria_dci:
             logger.info("Computing DCI...")
             if CQA.dci is not None:
