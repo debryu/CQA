@@ -59,7 +59,6 @@ def parse_labo_args(parser, args):
 
 def parse_vlgcbm_args(parser, args):
   ds = args.dataset.split("_")[0]
-  parser.add_argument("-wandb",action="store_true",help="activate wandb")
   parser.add_argument("-mock",action="store_true",help="Mock training for debugging purposes",)
   parser.add_argument("-concept_set", type=str, default=CONCEPT_SETS[ds], help="path to concept set name")
   parser.add_argument("-filter_set", type=str, default=None, help="path to concept set name")

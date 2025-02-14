@@ -910,12 +910,15 @@ def train_cbl(
     if data_parallel:
         backbone = torch.nn.DataParallel(backbone)
         cbl = torch.nn.DataParallel(cbl)
+    
     for epoch in range(epochs):
+        logs = {'epoch':epoch}
         train_loss = 0
         lr = optimizer.param_groups[0]["lr"]
 
         logger.info(f"Running CBL training for Epoch: {epoch}")
         its = tqdm(total=len(train_loader), position=0, leave=True)
+        train_loss = []
         for batch_idx, (features, concept_one_hot, _) in enumerate(train_loader):
             features = features.to(device)  # (batch_size, feature_dim)
             concept_one_hot = concept_one_hot.to(device)  # (batch_size, n_concepts)
@@ -937,8 +940,7 @@ def train_cbl(
             optimizer.zero_grad()
             batch_loss.backward()
             optimizer.step()
-            if args.wandb:
-                wandb.log({"train-loss": batch_loss.item()})
+            train_loss.append(batch_loss.item())
             # print batch stats
             if (batch_idx + 1) % 1000 == 0:
                 its.update(1000)
@@ -953,8 +955,6 @@ def train_cbl(
                     # Exit process if loss is nan
                     logger.error(f"Loss is nan at epoch {epoch} and batch {batch_idx}")
                     sys.exit(1)
-            if args.mock:
-                break
         backbone.eval()
         # finalize metrics and update model
         its.close()
@@ -977,14 +977,16 @@ def train_cbl(
             best_val_loss_epoch = epoch
             best_backbone_state = backbone.state_dict()
             best_model_state = cbl.state_dict()
-        if args.wandb:
-                wandb.log({"val-loss": val_loss})
+        logs['val_loss'] = val_loss
+        logs['train_loss'] = train_loss.mean()
         # write to tensorboard
         if tb_writer is not None:
             tb_writer.add_scalar("Loss/train", train_loss, epoch)
             tb_writer.add_scalar("Loss/val", val_loss, epoch)
             tb_writer.add_scalar("lr", lr, epoch)
 
+        if args.wandb:
+            wandb.log(logs)
         # print epoch stats
         logger.info(
             f"Epoch: {epoch} | Train loss: {train_loss:.6f} | Val loss: {val_loss:.6f}"
@@ -994,8 +996,7 @@ def train_cbl(
         if scheduler is not None:
             scheduler.step(val_loss)
         
-        if args.mock:
-            break
+    
 
     # return best model based on validation loss
     logger.info(f"Best val loss: {best_val_loss:.6f} at epoch {best_val_loss_epoch}")

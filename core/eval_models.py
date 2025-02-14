@@ -43,8 +43,10 @@ def eval_model(arguments):
                 if 'timed out' in str(e) or "has no attribute 'run_id'" in str(e):
                     logger.error("Cannot load existing run. Creating a new run.")
                     if str(arguments.load_dir).endswith("/") or str(arguments.load_dir).endswith("\\"):
+                        logger.debug(f"Creating new run '{arguments.load_dir}'")
                         wandb_run = wandb.init(project="Concept Quality Analysis", name=arguments.load_dir,config=arguments)
                     else:
+                        logger.debug(f"Creating new run '{os.path.basename(arguments.load_dir)}'")
                         wandb_run = wandb.init(project="Concept Quality Analysis", name=os.path.basename(arguments.load_dir),config=arguments)
                     
                     CQA.run_id = wandb_run.id    

@@ -131,10 +131,7 @@ class CONCEPT_QUALITY():
       if metric in self.metrics:
         logging_metrics[metric] = self.metrics[metric]
       else:
-        logger.warning(f"####  Available metrics:")
-        for m in self.metrics:
-          logger.warning(f"# - {m}")
-        raise NotImplementedError(f"Metric {metric} not implemented.")
+        logger.warning(f"Missing metric: {metric}")
     if os.path.exists(os.path.join(self.main_args.load_dir,"importance_matrix.png")):
       logger.debug(f"Logging DCI image from {self.main_args.load_dir}")
       logging_metrics['DCI'] = wandb.Image(os.path.join(self.main_args.load_dir,"importance_matrix.png"))
