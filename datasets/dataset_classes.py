@@ -1,4 +1,5 @@
 import torchvision
+from medmnist import ChestMNIST
 from torch.utils.data import Subset, Dataset
 import torch
 from tqdm import tqdm
@@ -10,6 +11,7 @@ from torchvision.datasets.utils import download_url
 from loguru import logger
 from PIL import Image
 from datasets.utils import create_dataset
+from utils.utils import download_image
 import traceback
 import pickle
 
@@ -239,7 +241,7 @@ class SHAPES3D_Custom(Subset):
         elif split == 'val' or split == 'valid':
             indexes = range(5000)
         elif split == 'test':
-            indexes = range(96000)
+            indexes = range(30000)
         else:
             raise NotImplementedError
         super().__init__(SHAPES3DOriginal(root=root,split=split,transform=transform,args=args),indexes)
@@ -331,3 +333,168 @@ class CUBDataset(Dataset):
         attr_label = img_data['attribute_label']
             
         return img, attr_label, class_label
+
+
+class SKINCON_Original(Dataset):
+    def __init__(self, root="./data/skincon", transform=None):
+        os.makedirs(root, exist_ok=True)
+        self.root = root
+        self.transform = transform
+        self.urls = {
+                        'fitzpatrick17k.csv':'https://raw.githubusercontent.com/mattgroh/fitzpatrick17k/refs/heads/main/fitzpatrick17k.csv',
+                        'annotations_fitzpatrick17k.csv':'https://skincon-dataset.github.io/files/annotations_fitzpatrick17k.csv'
+                    }
+        self.files = [  'fitzpatrick17k.csv',
+                        'fitzpatrick17k_images',
+                        'annotations_fitzpatrick17k.csv',
+                        'filtered_concepts.txt'
+                     ]
+        if not self._check_integrity():
+            drop_indices = self._download()
+
+        try:
+            self.data = pd.read_csv(os.path.join(self.root,'fitzpatrick17k_filtered.csv'))
+        except:
+            self.data = pd.read_csv(os.path.join(self.root,'fitzpatrick17k.csv'))
+            for entry in tqdm(self.data.itertuples(index=True), desc="Downloading SkinCon images"):
+                #logger.debug(entry.url)
+                if pd.isna(entry.url) or str(entry.url).strip() == '':
+                    logger.warning(f"Entry {entry.Index} has no url. Dropping entry.")
+                    drop_indices.append(entry.Index)
+                    logger.debug(f"Dropped: {drop_indices}")
+            ## Drop all collected indices at once
+            self.data.drop(index=drop_indices, inplace=True)
+            # Save the cleaned data
+            self.data.to_csv(os.path.join(self.root,'fitzpatrick17k_filtered.csv'), index=False)
+
+        # Read concepts from file filtered_concepts.txt
+        with open(os.path.join(self.root,'filtered_concepts.txt')) as f:
+            self.concepts = f.read().split("\n")
+        for entry in tqdm(self.data.itertuples(index=True), desc="Filtering"):
+            drop_indices = []
+            if entry.label not in self.concepts:
+                logger.warning(f"Entry {entry.Index} dropped because of low frequency concept {entry.label}")
+                drop_indices.append(entry.Index)
+                logger.debug(f"Dropped: {drop_indices}")
+            ## Drop all collected indices at once
+            self.data.drop(index=drop_indices, inplace=True)
+            # Save the cleaned data
+            self.data.to_csv(os.path.join(self.root,'fitzpatrick17k_filtered.csv'), index=False)
+        self.annotations = pd.read_csv(os.path.join(self.root,'annotations_fitzpatrick17k.csv'))
+        
+        self.classes = {'non-neoplastic':0, 'benign':1, 'malignant':2}
+        self.concepts = {concept:i for i,concept in enumerate(self.concepts)}
+        #for entry in self.annotations.itertuples(index=True):
+        #    print(entry)
+        #    id = entry.ImageID
+        #    if os.path.exists(os.path.join(self.root,'fitzpatrick17k_images',id)):
+        #        print("Image exists")
+            
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx): 
+        entry = self.data.iloc[idx]
+        image = Image.open(os.path.join(self.root,'fitzpatrick17k_images',f"{entry['md5hash']}.jpg")).convert('RGB')
+        nine_part_label = entry['nine_partition_label']
+        three_part_label = entry['three_partition_label']
+        label = entry['label']
+        return image, self.concepts[label], self.classes[three_part_label]
+    
+    def _download(self):
+        # httpwwwdermaamincomsiteimagesclinicalpicLLichensimplexchronicusLichensimplexchronicus30jpg.jpg
+        # http://www.dermaamin.com/site/images/clinicalpic/LLichensimplexchronicus/Lichensimplexchronicus30jpg.jpg
+        for file in self.urls.keys():
+            download_url(self.urls[file], self.root, file)
+        self.data = pd.read_csv(os.path.join(self.root,'fitzpatrick17k.csv'))
+        images_path = os.path.join(self.root,'fitzpatrick17k_images')
+        os.makedirs(os.path.join(images_path), exist_ok=True)
+        failed_downloads = []
+        for entry in tqdm(self.data.itertuples(index=True), desc="Downloading SkinCon images"):
+            url = entry.url
+            name = entry.md5hash
+            file_path = os.path.join(images_path,f"{name}.jpg")
+            if not os.path.exists(file_path):
+                logger.debug(f"Image not found. Downloading {url} to {file_path}")
+                downloaded = download_image(url, file_path)
+                if not downloaded:
+                    failed_downloads.append(entry.Index)
+        return failed_downloads
+
+    def _check_integrity(self):
+        for f in self.files:
+            if not os.path.exists(os.path.join(self.root,f)):
+                return False
+        return True
+    
+
+class CHESTMINST_Dataset(Dataset):
+    '''
+    0 Atelectasis;
+    1 Cardiomegaly; 
+    2 Effusion; 
+    3 Infiltration; 
+    4 Mass; 
+    5 Nodule; 
+    6 Pneumonia; 
+    7 Pneumothorax; 
+    8 Consolidation;
+    9 Edema; 
+    10 Emphysema; 
+    11 Fibrosis; 
+    12 Pleural_Thickening; 
+    13 Hernia;
+    '''
+    name = 'chestmnist'
+    def __init__(self, root='./data/chestmnist', split='train', transform=None, size=224,
+                 train_subset_indices = [0,-1],
+                 val_subset_indices = [0,-1],
+                 test_subset_indices = [0,-1],):
+        os.makedirs(root, exist_ok=True)
+
+        # Since the ChestMNIST dataset is grayscale, we need to convert it to RGB
+        # To take advantage of the pre-trained models
+        if transform is not None:
+            transform_with_rgb = torchvision.transforms.Compose([
+                    torchvision.transforms.Lambda(lambda img: img.convert("RGB")),
+                    *transform.transforms,
+                ])
+        else:
+            transform_with_rgb = None
+            #transform_with_rgb = torchvision.transforms.Compose([
+            #        torchvision.transforms.Lambda(lambda img: img.convert("RGB")),
+            #    ])
+
+        self.data = ChestMNIST(root=root, download=True, split=split, transform=transform_with_rgb, size=size)
+        if split == 'train':
+            if train_subset_indices[1] == -1:
+                train_subset_indices[1] = len(self.data)
+            self.data = Subset(self.data, range(train_subset_indices[0],train_subset_indices[1]))
+        if split == 'val':
+            if val_subset_indices[1] == -1:
+                val_subset_indices[1] = len(self.data)
+            self.data = Subset(self.data, range(val_subset_indices[0],val_subset_indices[1]))
+        if split == 'test':
+            if test_subset_indices[1] == -1:
+                test_subset_indices[1] = len(self.data)
+            self.data = Subset(self.data, range(test_subset_indices[0],test_subset_indices[1]))
+        '''
+        if split == 'train':
+            self.data = Subset(self.dataset, range(0, 5000))
+        elif split == 'val' or split == 'valid':
+            self.data = Subset(self.dataset, range(5000, 6000))
+        elif split == 'test':
+            self.data = Subset(self.dataset, range(6000, 7000))
+        else:
+            raise NotImplementedError
+        '''
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        img, concepts = self.data[index]
+        
+        label = int(np.any(concepts))
+        label = torch.tensor(label)
+        concepts = torch.tensor(concepts)
+        return img, concepts, label

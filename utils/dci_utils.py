@@ -100,9 +100,26 @@ CELEBA_GROUND_TRUTH = [
   "Wearing_Necktie",
   "Young"
 ]
+CHESTMNIST_GROUND_TRUTH = [
+  "Atelectasis",
+  "Cardiomegaly",
+  "Effusion",
+  "Infiltration",
+  "Mass",
+  "Nodule",
+  "Pneumonia",
+  "Pneumothorax",
+  "Consolidation",
+  "Edema",
+  "Emphysema",
+  "Fibrosis",
+  "Pleural_Thickening",
+  "Hernia"
+]
 GROUND_TRUTH_CONCEPTS = {
     "celeba": CELEBA_GROUND_TRUTH,
     "shapes3d": SHAPES3D_GROUND_TRUTH,
+    "chestmnist": CHESTMNIST_GROUND_TRUTH,
 }
 
 def save_IM_as_img(save_path,name,title,importance_matrix,save_plot=True):

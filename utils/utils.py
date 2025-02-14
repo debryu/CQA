@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wandb 
 import random
+import os, requests
+from urllib.parse import urlparse
 
 def set_seed(seed):
     random.seed(seed)
@@ -87,3 +89,32 @@ def log_train(epoch, args, train_loss = None, val_loss = None, dict = None):
             logs.update(dict)
         wandb.log(logs)
     logger.info(f"Train Loss: {train_loss}, Val Loss: {val_loss}")
+
+
+# Function to download images
+def download_image(url, file_path):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    }
+    try:
+        response = requests.get(url, headers=headers, stream=True)
+        response.raise_for_status()  # Raise an error for bad responses
+        
+        # Extract filename from URL
+        parsed_url = urlparse(url)
+        filename = os.path.basename(parsed_url.path)
+        
+        if not filename:  # If URL does not have a filename, generate one
+            filename = f"image_{hash(url)}.jpg"
+        
+        # Save image
+        with open(file_path, "wb") as file:
+            for chunk in response.iter_content(1024):
+                file.write(chunk)
+        
+        logger.debug(f"Downloaded: {filename}")
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to download {url}: {e}")
+        return False

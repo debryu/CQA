@@ -256,3 +256,10 @@ def train(args):
         json.dump(out_dict, f, indent=2)
     '''
     return args
+
+def train_last_layer(args):
+    ''' #########################################
+        ####        TRAIN LAST LAYER         ####
+        #########################################
+    '''
+    pass
