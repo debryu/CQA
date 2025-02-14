@@ -26,11 +26,11 @@ class _Model(torch.nn.Module):
         self.args = args
         
     def forward(self, x):
-        concepts = self.backbone(x) 
-        concepts = torch.nn.functional.sigmoid(concepts)
+        presigmoid_concepts = self.backbone(x) 
+        concepts = torch.nn.functional.sigmoid(presigmoid_concepts)
         # Generate random preds with dimension batch_size x 2
         preds = self.final(concepts)
-        out_dict = {'unnormalized_concepts':concepts, 'concepts':concepts, 'preds':preds}
+        out_dict = {'unnormalized_concepts':concepts, 'concepts':concepts, 'preds':preds, 'pre-sigmoid_concepts':presigmoid_concepts}
         return out_dict
 
     def load(self):
@@ -76,24 +76,4 @@ class RESNETCBM(BaseModel):
 
         return t
     '''
-
-    def test(self, loader):
-        acc_mean = 0.0
-        device = self.args.device
-        for features, concept_one_hot, targets in tqdm(loader):
-            features = features.to(device)
-            concept_one_hot = concept_one_hot.to(device)
-            targets = targets.to(device)
-
-            # forward pass
-            with torch.no_grad():
-                out_dict = self.model(features)
-                logits = out_dict['preds']
-
-            # calculate accuracy
-            preds = logits.argmax(dim=1)
-            accuracy = (preds == targets).sum().item()
-            acc_mean += accuracy
-
-        return acc_mean / len(loader.dataset)
 
