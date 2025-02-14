@@ -1,12 +1,23 @@
 from loguru import logger
 import os
-from models.training import get_trainer
+from models.training import get_trainer, get_last_layer_trainer
 from config import SAVED_MODELS_FOLDER, folder_naming_convention
 from utils.args_utils import save_args
 from utils.utils import set_seed
+from utils.args_utils import load_args
+import copy
 import wandb
 
 def run(args):
+    if args.resume is not None:
+        t_args = copy.deepcopy(args)
+        t_args.load_dir = args.resume
+        M_args = load_args(t_args)
+        print(M_args)
+        train_fn = get_last_layer_trainer(M_args) 
+        final_args = train_fn(M_args)
+        save_args(final_args)
+        return
     # Save folder
     folder_name = folder_naming_convention(args)
     if args.save_dir is None:

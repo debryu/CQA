@@ -21,3 +21,5 @@ def train_LR_on_concepts(conc_pred:torch.tensor,conc_gt:torch.tensor):
     
     return torch.tensor(W),torch.tensor(B)
 
+
+

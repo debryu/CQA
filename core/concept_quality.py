@@ -9,7 +9,7 @@ import copy
 from models import get_model
 from loguru import logger
 from sklearn.metrics import classification_report as cr
-from metrics.common import get_conceptWise_metrics
+from metrics.common import get_conceptWise_metrics, compute_AUCROC_concepts
 from utils.eval_models import train_LR_on_concepts
 from config import LABELS, METRICS, REQUIRES_SIGMOID
 from utils.args_utils import load_args
@@ -78,6 +78,9 @@ class CONCEPT_QUALITY():
       _output['concepts_pred'] *= W
       _output['concepts_pred'] += B
     m = get_conceptWise_metrics(_output, self.model.args, self.main_args, threshold=threshold)
+
+    compute_AUCROC_concepts(_output, self.model.args)
+
     self.metrics.update(m)
     self.save()
     return m
@@ -116,6 +119,7 @@ class CONCEPT_QUALITY():
     logging_metrics = {}
     log_c_accuracies = False
     for metric in METRICS:
+      logger.debug(f"Logging metric: {metric}")
       #########################################
       if metric == 'concept_accuracy':  # This is because the accuracies needs to be logged separately
           x_values = range(len(self.metrics['concept_accuracy']))

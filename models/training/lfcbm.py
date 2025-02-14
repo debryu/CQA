@@ -261,3 +261,10 @@ def train(args):
     torch.save(b_g, os.path.join(save_name, "b_g.pt"))
 
     return args
+
+def train_last_layer(args):
+    ''' #########################################
+        ####        TRAIN LAST LAYER         ####
+        #########################################
+    '''
+    pass

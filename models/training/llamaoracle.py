@@ -143,3 +143,9 @@ def train(args):
     
     return args
 
+def train_last_layer(args):
+    ''' #########################################
+        ####        TRAIN LAST LAYER         ####
+        #########################################
+    '''
+    pass

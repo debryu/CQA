@@ -2,6 +2,13 @@ from sklearn.metrics import classification_report
 from loguru import logger
 from config import CONCEPT_SETS
 from utils.utils import get_concept_names
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVC
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve, auc
+from tqdm import tqdm
+from matplotlib import pyplot as plt
 '''
 Current output:
 out_dict = {
@@ -12,6 +19,38 @@ out_dict = {
         "accuracy": acc_mean / len(loader.dataset)
       }
 '''
+
+def auc_roc(X,y, model_args):
+  X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=model_args.seed)
+  classifier = make_pipeline(StandardScaler(), LinearSVC(random_state=model_args.seed))
+  classifier.fit(X_train, y_train)
+  display = PrecisionRecallDisplay.from_estimator(
+    classifier, X_test, y_test,name='LINEAR SVC', plot_chance_level=True
+  )
+  _ = display.ax_.set_title(f'{model_args.dataset} AUC-ROC')
+  y_preds = classifier.decision_function(X_test)
+  # Compute precision-recall curve
+  precision, recall, _ = precision_recall_curve(y_test, y_preds)
+
+  # Compute PR AUC
+  pr_auc = auc(recall, precision)
+  logger.info(f"PR AUC: {pr_auc}")
+  plt.show()
+
+def compute_AUCROC_concepts(output,args):
+    if 'pre-sigmoid_concepts' in output.keys():
+      conc_pred = output['pre-sigmoid_concepts']
+    else:
+      conc_pred = output['concepts_pred']
+    conc_gt = output['concepts_gt']
+
+    for i in tqdm(range(args.num_c), desc="Computing AUC-ROC"):
+      logger.info(f"Computing AUC-ROC for concept {i}")
+      X = conc_pred[:,i].detach().cpu().numpy().reshape(-1,1)
+      y = conc_gt[:,i].detach().cpu().numpy()
+      auc_roc(X,y, args)
+      
+    return 
 
 def get_conceptWise_metrics(output, model_args, main_args, threshold=0.0):
     if main_args.wandb:
