@@ -14,7 +14,6 @@ c_l = data.get_label_weights()
 print(c_w)
 print(c_l)
 print(data.get_pos_weights())
-print('ciao')
 asd
 data = CHESTMINST_Dataset()
 for sample in tqdm(data): 
