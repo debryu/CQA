@@ -7,17 +7,18 @@ import os
 from multiprocessing import Pool
 from loguru import logger
 
-CUDA_VISIBLE_DEVICES = '0'
+CUDA_VISIBLE_DEVICES = '2'
 vlg_run = {
     # GRID SEARCH PARAMETERS
-    "-cbl_epochs": [100,
+    "-cbl_epochs": [30,
                     ],
-    "-cbl_confidence_threshold":[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8],
+    "-cbl_confidence_threshold":[0.15],
     "-cbl_lr": [0.01],
+    "-crop_to_concept_prob": [0.0, 0.3, 0.5],
 
     # FIXED PARAMETERS
     "-model": ["vlgcbm"],
-    "-dataset": ["celeba",
+    "-dataset": ["shapes3d",
                 ],
     "-cbl_optimizer": ["adam"],
     "-skip_concept_filter":[""],
@@ -27,22 +28,53 @@ vlg_run = {
 
 resnetcbm_run = {
     # GRID SEARCH PARAMETERS
-    "-epochs": [100,
+    "-epochs": [20,
                     ],
-    "-unfreeze":[1,5],
-    "-cbl_lr": [0.01, 0.0001, 0.00001],
+    "-unfreeze":[5],
+    "-lr": [0.001],
     "-balanced":[""],
-    "-dropout_prob":[0.01,0.1],
+    "-dropout_prob":[0.01],
 
     # FIXED PARAMETERS
-    "-val_interval":[5],
+    "-val_interval":[1],
     "-model": ["resnetcbm"],
-    "-dataset": ["celeba",
+    "-dataset": [
+                    "celeba",
+                    "shapes3d"
                 ],
     "-wandb":[""],
+    "-seed":["64","65","66","67","68"],
 }
 
-runs = [vlg_run]
+lfcbm_run = {
+    # GRID SEARCH PARAMETERS
+    
+
+    # FIXED PARAMETERS
+    "-model": ["lfcbm"],
+    "-dataset": [
+                    #"celeba",
+                    "shapes3d"
+                ],
+    "-wandb":[""],
+    "-seed":["42"],
+}
+
+labo_run = {
+    # GRID SEARCH PARAMETERS
+    
+
+    # FIXED PARAMETERS
+    "-model": ["labo"],
+    "-dataset": [
+                    #"celeba",
+                    "shapes3d"
+                ],
+    "-wandb":[""],
+    "-seed":["42"],
+}
+
+runs = [lfcbm_run]
 
 
 import os
