@@ -21,6 +21,7 @@ out_dict = {
 '''
 
 def auc_roc(X,y, model_args):
+  logger.debug("auc_roc function")
   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=model_args.seed)
   classifier = make_pipeline(StandardScaler(), LinearSVC(random_state=model_args.seed))
   classifier.fit(X_train, y_train)
@@ -35,15 +36,18 @@ def auc_roc(X,y, model_args):
   # Compute PR AUC
   pr_auc = auc(recall, precision)
   logger.info(f"PR AUC: {pr_auc}")
-  plt.show()
+  #plt.show()
 
 def compute_AUCROC_concepts(output,args):
+    logger.debug("Computing AUC-ROC")
     if 'pre-sigmoid_concepts' in output.keys():
       conc_pred = output['pre-sigmoid_concepts']
     else:
       conc_pred = output['concepts_pred']
     conc_gt = output['concepts_gt']
 
+    if not hasattr(args, 'num_c'):
+      args.num_c = conc_pred.shape[1]
     for i in tqdm(range(args.num_c), desc="Computing AUC-ROC"):
       logger.info(f"Computing AUC-ROC for concept {i}")
       X = conc_pred[:,i].detach().cpu().numpy().reshape(-1,1)

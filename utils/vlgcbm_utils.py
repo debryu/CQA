@@ -570,8 +570,14 @@ class ConceptDataset(Dataset):
 
     def _get_data(self, idx):
         data_file = f"{self.dir}/{idx}.json"
-        with open(data_file, "r") as f:
-            data = json.load(f)
+        try:
+            with open(data_file, "r") as f:
+                data = json.load(f)
+        except:
+            logger.error(f"Missing {idx}.json")
+            data_file = f"{self.dir}/0.json"
+            with open(data_file, "r") as f:
+                data = json.load(f)
         return data
 
     def get_annotations(self, idx: int):
@@ -918,7 +924,7 @@ def train_cbl(
 
         logger.info(f"Running CBL training for Epoch: {epoch}")
         its = tqdm(total=len(train_loader), position=0, leave=True)
-        train_loss = []
+        train_losses = []
         for batch_idx, (features, concept_one_hot, _) in enumerate(train_loader):
             features = features.to(device)  # (batch_size, feature_dim)
             concept_one_hot = concept_one_hot.to(device)  # (batch_size, n_concepts)
@@ -940,7 +946,7 @@ def train_cbl(
             optimizer.zero_grad()
             batch_loss.backward()
             optimizer.step()
-            train_loss.append(batch_loss.item())
+            train_losses.append(batch_loss.item())
             # print batch stats
             if (batch_idx + 1) % 1000 == 0:
                 its.update(1000)
@@ -978,7 +984,7 @@ def train_cbl(
             best_backbone_state = backbone.state_dict()
             best_model_state = cbl.state_dict()
         logs['val_loss'] = val_loss
-        logs['train_loss'] = train_loss.mean()
+        logs['train_loss'] = np.mean(train_losses)
         # write to tensorboard
         if tb_writer is not None:
             tb_writer.add_scalar("Loss/train", train_loss, epoch)

@@ -59,6 +59,8 @@ def train(args):
     optimizer = torch.optim.Adam(train_model.parameters(), lr=0.0001)
     best_loss = 1000000
     patience = 0
+    train_model.train()
+    train_model.backbone.train()
     for e in range(args.n_epochs):
         train_loss = []
         for batch in tqdm(train_loader, desc=f'Epoch {e}'):
