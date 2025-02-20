@@ -49,6 +49,9 @@ def compute_AUCROC_concepts(output,args):
       conc_pred = output['concepts_pred']
     conc_gt = output['concepts_gt']
 
+    if not hasattr(args, 'num_c'):
+      args.num_c = conc_pred.shape[1]
+    
     concepts_auc = []
     for i in tqdm(range(args.num_c), desc="Computing AUC-ROC"):
       logger.info(f"Computing AUC-ROC for concept {i}")

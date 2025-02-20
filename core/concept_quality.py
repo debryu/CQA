@@ -141,6 +141,7 @@ class CONCEPT_QUALITY():
       logger.debug(f"Logging DCI image from {self.main_args.load_dir}")
       logging_metrics['DCI'] = wandb.Image(os.path.join(self.main_args.load_dir,"importance_matrix.png"))
     
+    logger.debug(f"Logging {logging_metrics}")
     wandb.log(logging_metrics)  
     if log_c_accuracies:
         for i,acc in enumerate(self.metrics['concept_accuracy']):

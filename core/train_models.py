@@ -28,6 +28,7 @@ def run(args):
     if args.seed:
         logger.info(f"#- Run {args.seed} -#")
         set_seed(args.seed)
+    
     if args.wandb:
         wand_run = wandb.init(
             # Set the project where this run will be logged

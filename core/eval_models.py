@@ -40,11 +40,14 @@ def eval_model(arguments):
                 pass
             # If this is not possible, then create a new one.
             except Exception as e:
+                return
                 if 'timed out' in str(e) or "has no attribute 'run_id'" in str(e):
                     logger.error("Cannot load existing run. Creating a new run.")
                     if str(arguments.load_dir).endswith("/") or str(arguments.load_dir).endswith("\\"):
+                        logger.debug(f"Creating new run '{arguments.load_dir}'")
                         wandb_run = wandb.init(project="Concept Quality Analysis", name=arguments.load_dir,config=arguments)
                     else:
+                        logger.debug(f"Creating new run '{os.path.basename(arguments.load_dir)}'")
                         wandb_run = wandb.init(project="Concept Quality Analysis", name=os.path.basename(arguments.load_dir),config=arguments)
                     
                     CQA.run_id = wandb_run.id    
@@ -68,7 +71,7 @@ def eval_model(arguments):
         criteria_dci = CQA.args.dataset not in CONCEPTS_NOT_AVAILABLE
         criteria_concept_metrics = CQA.args.dataset not in CONCEPTS_NOT_AVAILABLE
         criteria_label_metrics = True
-        print(CQA.metrics)
+        logger.debug(f"Stored metrics: {CQA.metrics}")
         if (CQA.main_args.dci or CQA.main_args.all) and criteria_dci:
             logger.info("Computing DCI...")
             if CQA.dci is not None:
@@ -101,7 +104,7 @@ def eval_model(arguments):
             #CQA.metrics()
             #print(CQA.metrics())
             #print(CQA.output)
-        
+       
         if CQA.main_args.wandb:
             CQA.log_metrics()
             wandb.finish()
@@ -113,8 +116,9 @@ def eval_model(arguments):
             load_args(arguments)
         except:
             logger.warning(f"!!!    USER ACTION REQUESTED   !!!")
-            confirmation = input(f"There is no 'args.txt' file. Do you want to delete '{arguments.load_dir}' and all its contents? (yes/no): ").strip().lower()
-            print(confirmation)
+            confirmation = "yes"
+            #confirmation = input(f"There is no 'args.txt' file. Do you want to delete '{arguments.load_dir}' and all its contents? (yes/no): ").strip().lower()
+            #print(confirmation)
             if str(confirmation) == "yes" or str(confirmation) == "y":
                 shutil.rmtree(arguments.load_dir)
                 logger.info(f"Deleted {arguments.load_dir}")
@@ -122,7 +126,8 @@ def eval_model(arguments):
             else:
                 logger.info("Deletion canceled.")
                 CQA.save()
-        
+        logger.error(traceback.format_exc())
+        return
         logger.error(f"Error in initializing CQA {arguments.load_dir}:\n{e}")
         logger.error(traceback.format_exc())
         logger.warning(f"!!!    USER ACTION REQUESTED   !!!")
@@ -140,6 +145,8 @@ def eval_model(arguments):
 def eval_all_models(args):
     completed = []
     for model, path in SAVED_MODELS_FOLDER.items():
+        if model not in ['resnetcbm']:
+            continue
         logger.debug(f"Model: {model}, Path: {path}")
         if path in completed:
             logger.debug(f"Skipping {path} as it is already completed")

@@ -1,6 +1,7 @@
 from loguru import logger
 import os
 import torch
+import wandb
 from utils.vlgcbm_utils import Backbone, BackboneCLIP, ConceptLayer, FinalLayer
 from utils.vlgcbm_utils import get_classes, get_concepts, get_filtered_concepts_and_counts, get_concept_dataloader
 from utils.vlgcbm_utils import get_loss, get_final_layer_dataset, load_concept_and_count, save_filtered_concepts, save_concept_count
@@ -9,7 +10,6 @@ from utils.vlgcbm_utils import train_cbl, train_sparse_final, test_model, per_cl
 #TODO: fix 12u29nr2
 
 def train(args):
-
     # Load classes
     classes = get_classes(args.dataset)
 
