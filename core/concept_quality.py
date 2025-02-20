@@ -5,6 +5,7 @@ import torch
 import os
 import json
 import copy
+import numpy as np
 #from utils.utils import compute_concept_frequencies
 from models import get_model
 from loguru import logger
@@ -79,8 +80,8 @@ class CONCEPT_QUALITY():
       _output['concepts_pred'] += B
     m = get_conceptWise_metrics(_output, self.model.args, self.main_args, threshold=threshold)
 
-    compute_AUCROC_concepts(_output, self.model.args)
-
+    c_aucs = compute_AUCROC_concepts(_output, self.model.args)
+    self.metrcs.update({'concept_auc':c_aucs, 'avg_concept_auc':np.mean(c_aucs)})
     self.metrics.update(m)
     self.save()
     return m

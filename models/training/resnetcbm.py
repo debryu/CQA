@@ -29,6 +29,8 @@ def train(args):
 
     model_class = RESNETCBM(args)
     train_model = model_class.model
+    train_model.train()
+    train_model.backbone.train()
     #trained_model = PretrainedResNetModel(args)
     transform = model_class.get_transform(split = 'train')
     args.transform = str(transform)

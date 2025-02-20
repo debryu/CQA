@@ -20,14 +20,17 @@ out_dict = {
       }
 '''
 
-def auc_roc(X,y, model_args):
+def auc_roc(X,y, model_args, concept_name=None):
   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=model_args.seed)
   classifier = make_pipeline(StandardScaler(), LinearSVC(random_state=model_args.seed))
   classifier.fit(X_train, y_train)
   display = PrecisionRecallDisplay.from_estimator(
     classifier, X_test, y_test,name='LINEAR SVC', plot_chance_level=True
   )
-  _ = display.ax_.set_title(f'{model_args.dataset} AUC-ROC')
+  if concept_name is not None:
+    _ = display.ax_.set_title(f'{model_args.dataset} {concept_name} AUC-ROC')
+  else:
+    _ = display.ax_.set_title(f'{model_args.dataset} AUC-ROC')
   y_preds = classifier.decision_function(X_test)
   # Compute precision-recall curve
   precision, recall, _ = precision_recall_curve(y_test, y_preds)
@@ -36,6 +39,8 @@ def auc_roc(X,y, model_args):
   pr_auc = auc(recall, precision)
   logger.info(f"PR AUC: {pr_auc}")
   plt.show()
+  
+  return pr_auc
 
 def compute_AUCROC_concepts(output,args):
     if 'pre-sigmoid_concepts' in output.keys():
@@ -44,13 +49,16 @@ def compute_AUCROC_concepts(output,args):
       conc_pred = output['concepts_pred']
     conc_gt = output['concepts_gt']
 
+    concepts_auc = []
     for i in tqdm(range(args.num_c), desc="Computing AUC-ROC"):
       logger.info(f"Computing AUC-ROC for concept {i}")
       X = conc_pred[:,i].detach().cpu().numpy().reshape(-1,1)
       y = conc_gt[:,i].detach().cpu().numpy()
-      auc_roc(X,y, args)
-      
-    return 
+      concept_name = get_concept_names(CONCEPT_SETS[args.dataset.split("_")[0]])[i]
+      cauc = auc_roc(X,y, args, concept_name=concept_name)
+      concepts_auc.append(cauc)
+    return concepts_auc
+    
 
 def get_conceptWise_metrics(output, model_args, main_args, threshold=0.0):
     if main_args.wandb:
