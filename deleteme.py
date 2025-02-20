@@ -5,6 +5,68 @@ import pickle
 from datasets.dataset_classes import SKINCON_Original, CHESTMINST_Dataset
 from tqdm import tqdm
 from datasets import GenericDataset
+import numpy as np
+from torchvision import transforms
+
+
+class linearModel(torch.nn.Module):
+    def __init__(self, in_features, out_features):
+        super(linearModel, self).__init__()
+        self.linear = torch.nn.Linear(in_features, out_features)
+    
+    def forward(self, x):
+        return self.linear(x)
+    
+
+class FinalLayer():
+    def __init__(self, in_features, out_features, lr, lam, alpha, device):
+        self.linear = torch.nn.Linear(in_features, out_features).to(device)
+        self.lr = lr
+        self.optimizer = torch.optim.Adam(self.linear.parameters(), lr = self.lr)
+        self.lam = lam
+        self.alpha = alpha
+        
+
+    def train(self,loader,loss_fn):
+        train_losses = []
+        for _, input, label in tqdm(loader):
+            input = input.to('cuda').to(torch.float32)
+            label = label.to('cuda')
+            output = self.linear(input)
+            # ELASTIC LOSS
+            weight, _ = list(self.linear.parameters())
+            l1 = self.lam * self.alpha * weight.norm(p=1)
+            l2 = 0.5 * self.lam * (1 - self.alpha) * (weight**2).sum()
+            loss = loss_fn(output, label) + l1 + l2
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            train_losses.append(loss.item())
+        return np.mean(train_losses)
+
+
+
+lam = 0.01
+alpha = 0.9
+t = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((224,224)),
+        ])
+dataset = GenericDataset('celeba', split = 'train', transform = t)
+loader = torch.utils.data.DataLoader(dataset, batch_size = 32, shuffle = True)
+loss_fn = torch.nn.CrossEntropyLoss()
+last_layer = FinalLayer(39,2,0.001,lam,alpha,'cuda')
+for epoch in range(10):
+    loss = last_layer.train(loader, loss_fn)
+    print(loss)
+    
+
+print(last_layer.linear.weight)
+    
+asd
+
+
+
 
 data = GenericDataset('celeba', split = 'val')
 
