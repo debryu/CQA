@@ -10,10 +10,12 @@ from models import get_model
 from loguru import logger
 from sklearn.metrics import classification_report as cr
 from metrics.common import get_conceptWise_metrics, compute_AUCROC_concepts
+from metrics.leakage import leakage_collapsing, auto_leakage
 from utils.eval_models import train_LR_on_concepts
 from config import LABELS, METRICS, REQUIRES_SIGMOID
 from utils.args_utils import load_args
 import wandb
+import traceback
 
 # TODO: Fix TEMP and add the correct target names
 # TODO: Count Imbalances for each ds once
@@ -36,15 +38,26 @@ class CONCEPT_QUALITY():
         self.label_freq = json.load(open(os.path.join(self.model.args.load_dir,"train_label_freq.txt")))
     self.metrics = {}
 
-  def store_output(self, split = 'test'):
-    logger.debug(f"Storing output for {split} split.")
-    self.output = self.model.run(split)
+  def store_output(self):
+    logger.debug(f"Storing output for all splits.")
+    self.output = self.model.run('test')
+    self.output_train = self.model.run('train')
+    self.output_val = self.model.run('val')
     logger.debug(f"Output stored in CQA object.")
     return
 
   def save(self):
-    pickle.dump(self, open(self.CQA_save_path, "wb"))
-    print(self.args)
+    
+    try:
+      pickle.dump(self, open(self.CQA_save_path, "wb"))
+    except:
+      import dill
+      dill_file = open(self.CQA_save_path, "wb")
+      dill_file.write(dill.dumps(self))
+      dill_file.close()
+      logger.warning("Maybe you moved the model in another folder. Try updating the path in the args and force another analysis.")
+      logger.warning("If the error is AttributeError: Can't get local object 'Backbone.__init__.<locals>.hook' then just ignore it!")
+      logger.error(traceback.format_exc())
     logger.info(f"Saved to {self.CQA_save_path}")
     return
 
@@ -77,11 +90,22 @@ class CONCEPT_QUALITY():
       W,B = train_LR_on_concepts(_output['concepts_pred'],_output['concepts_gt'])
       _output['concepts_pred'] *= W
       _output['concepts_pred'] += B
+
     m = get_conceptWise_metrics(_output, self.model.args, self.main_args, threshold=threshold)
-
-    compute_AUCROC_concepts(_output, self.model.args)
-
     self.metrics.update(m)
+
+    # Collapse the concepts, the domain goes from R to {0,1}. This to remove information leakage.
+    _output['collapsed_concepts'] = (torch.nn.functional.sigmoid(_output['concepts_pred']) > threshold).float()
+    _output['concepts_probs'] = torch.nn.functional.sigmoid(_output['concepts_pred'])
+    #self.metrics.update(l)
+    num_labels = _output['labels_pred'].shape[1]
+    #auto_leakage(self.output_train, self.output_val, _output, num_labels)
+
+    # Always compute auc roc on raw concept predictions, this is handled inside the function
+    a = compute_AUCROC_concepts(_output, self.model.args)
+    self.metrics.update(a)
+    
+
     self.save()
     return m
   
@@ -152,10 +176,16 @@ def initialize_CQA(folder_path, args, split = 'test'):
   logger.debug(f"Initializing CQA from {folder_path}")
   main_args = copy.deepcopy(args)
   # Check if CQA (Concept Quality Analysis) is already present
-  if os.path.exists(folder_path + '/CQA.pkl') and not force_from_scratch:
+  if os.path.exists(os.path.join(folder_path,'CQA.pkl')) and not force_from_scratch:
     logger.info("CQA found. Loading CQA.")
-    with open(folder_path + '/CQA.pkl', 'rb') as f:
-      CQA = pickle.load(f)
+    try:
+      with open(os.path.join(folder_path,'CQA.pkl'), 'rb') as f:
+        CQA = pickle.load(f)
+    except:
+      import dill
+      with open(os.path.join(folder_path,'CQA.pkl'), "wb") as dill_file:
+        dill.dump(CQA, dill_file)
+      #CQA = dill.load(os.path.join(folder_path,'CQA.pkl'), 'rb')
     CQA.main_args = main_args
     CQA.args = load_args(args)
     CQA.save()
@@ -179,7 +209,7 @@ def initialize_CQA(folder_path, args, split = 'test'):
     CQA.main_args = main_args
     logger.info(f"Running the model on {model.args.dataset} {split}...")
     # Run the model to get all the outputs
-    CQA.store_output(split)
+    CQA.store_output()
     CQA.save()
     
   return CQA

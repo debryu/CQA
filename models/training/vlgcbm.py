@@ -2,6 +2,7 @@ from loguru import logger
 import os
 import torch
 import wandb
+import json
 from utils.vlgcbm_utils import Backbone, BackboneCLIP, ConceptLayer, FinalLayer
 from utils.vlgcbm_utils import get_classes, get_concepts, get_filtered_concepts_and_counts, get_concept_dataloader
 from utils.vlgcbm_utils import get_loss, get_final_layer_dataset, load_concept_and_count, save_filtered_concepts, save_concept_count
@@ -35,7 +36,7 @@ def train(args):
         # filter concepts
         logger.info("Filtering concepts")
         raw_concepts = get_concepts(args.concept_set, args.filter_set)
-        logger.debug(f"Raw concepts n.{len(raw_concepts)}: {raw_concepts}")
+        logger.debug(f"Raw concepts n.{len(raw_concepts)}")
 
         (
             concepts,
@@ -54,7 +55,7 @@ def train(args):
             seed=args.seed,
             remove_never_seen=conc_filter
         )
-
+        print(len(concepts))
         # save concept counts
         save_concept_count(concepts, concept_counts, args.save_dir)
         save_filtered_concepts(filtered_concepts, args.save_dir)
@@ -218,7 +219,27 @@ def train(args):
     final_layer.load_state_dict({"weight": W_g, "bias": b_g})
     final_layer.save_model(args.save_dir)
 
+    # save normalized concept features
+    #train_concept_features = torch.load(os.path.join(args.save_dir, "train_concept_features.pt"))
+    #train_concept_labels = torch.load(os.path.join(args.save_dir, "train_concept_labels.pt"))
+    #val_concept_features = torch.load(os.path.join(args.save_dir, "val_concept_features.pt"))
+    #val_concept_labels = torch.load(os.path.join(args.save_dir, "val_concept_labels.pt"))
+    #from sklearn.svm import LinearSVC
+    #from sklearn.metrics import classification_report
+    # Train LinearSVC model
+    #clf = LinearSVC(C = 1)
+    #import numpy as np
+    #train_concept_features = train_concept_features.cpu().numpy()
+    #train_concept_labels = train_concept_labels.cpu().numpy()
+    #clf.fit(train_concept_features, train_concept_labels)
+    #all_preds = clf.predict(val_concept_features.cpu().numpy())
+    #all_labels = val_concept_labels.cpu().numpy()  # Move to CPU & convert to NumPy
+    # Compute classification report
+    #report = classification_report(all_labels, all_preds, digits=4)
+    #print(report)
+
     '''
+    # Can't do test evaluation here because we don't have annotated the test set
     ##############################################
     #### Test the model on test set ####
     ##############################################
@@ -231,7 +252,7 @@ def train(args):
     ##############################################
     # Store training metadata
     ##############################################
-    with open(os.path.join(args.save_dir, "metrics.txt"), "w") as f:
+    with open(os.path.join(args.save_dir, "vlg-metrics.txt"), "w") as f:
         out_dict = {}
         out_dict["per_class_accuracies"] = per_class_accuracy(
             torch.nn.Sequential(backbone, cbl, normalization_layer, final_layer).to(

@@ -27,7 +27,8 @@ class _Model(torch.nn.Module):
         concept_logits = self.cbl(embeddings)
         concept_probs = self.normalization(concept_logits)
         logits = self.final_layer(concept_probs)
-        out_dict = {'unnormalized_concepts':concept_logits, 'concepts':concept_probs, 'preds':logits}
+        probs = torch.nn.functional.sigmoid(logits)
+        out_dict = {'unnormalized_concepts':concept_logits, 'concepts':concept_probs, 'preds':logits, 'probs':probs}
         return out_dict
 
     def load(self):

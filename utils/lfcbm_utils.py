@@ -294,7 +294,6 @@ def save_clip_text_features(model, text, save_name, batch_size=1000):
 def save_activations(clip_name, target_name, target_layers, d_probe, 
                      concept_set, batch_size, device, pool_mode, save_dir):
     
-    
     target_save_name, clip_save_name, text_save_name = get_save_names(clip_name, target_name, 
                                                                     "{}", d_probe, concept_set, 
                                                                       pool_mode, save_dir)
@@ -312,7 +311,6 @@ def save_activations(clip_name, target_name, target_layers, d_probe,
         target_model, target_preprocess = clip.load(target_name[5:], device=device)
     else:
         target_model, target_preprocess = get_target_model(target_name, device)
-    
     
     ds_name = d_probe.split("_")[0]
     split = d_probe.split("_")[-1]

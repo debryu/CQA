@@ -74,7 +74,7 @@ def parse_vlgcbm_args(parser, args):
   # arguments for CBL
   parser.add_argument("-crop_to_concept_prob",type=float,default=0.0,help="Probability of cropping to concept granuality",)
   parser.add_argument("-cbl_confidence_threshold",type=float,default=0.15,help="Confidence threshold for bouding boxes to use",)
-  parser.add_argument("-cbl_hidden_layers",type=int,default=1,help="how many hidden layers to use in the projection layer",)
+  parser.add_argument("-cbl_hidden_layers",type=int,default=3,help="how many hidden layers to use in the projection layer",)
   parser.add_argument("-cbl_batch_size",type=int,default=32,help="Batch size used when fitting projection layer",)
   parser.add_argument("-cbl_epochs",type=int,default=20,help="how many steps to train the projection layer for",)
   parser.add_argument("-cbl_weight_decay",type=float,default=1e-5,help="weight decay for training the projection layer",)
@@ -92,7 +92,6 @@ def parse_vlgcbm_args(parser, args):
   parser.add_argument("-saga_step_size", type=float, default=0.1, help="Step size for SAGA")
   parser.add_argument("-saga_lam",type=float,default=0.0007,help="Sparsity regularization parameter, higher->more sparse",)
   parser.add_argument("-saga_n_iters",type=int,default=2000,help="How many iterations to run the final layer solver for",)
-  parser.add_argument("-seed", type=int, default=42, help="Random seed for reproducibility")
   parser.add_argument("-dense", action="store_true", help="train with dense or sparse method")
   parser.add_argument("-dense_lr",type=float,default=0.001,help="Learning rate for the dense final layer training",)
   parser.add_argument("-data_parallel", action="store_true")
@@ -105,7 +104,7 @@ def parse_resnetcbm_args(parser, args):
   ds = args.dataset.split("_")[0]
   parser.add_argument("-device", type=str, default="cuda", help="Which device to use")
   parser.add_argument("-batch_size", type=int, default=512, help="Batch size used when saving model/CLIP activations")
-  parser.add_argument("-backbone", type=str, default="resnet18", help="Which ResNet pretrained model to use as backbone", choices=['resnet18', 'resnet34'])
+  parser.add_argument("-backbone", type=str, default="resnet18", help="Which ResNet pretrained model to use as backbone")
   parser.add_argument("-unfreeze", type=int, default=1, help="Number of conv layers to unfreeze from the pretrained model")
   parser.add_argument("-num_c", type=int, default=64, help="Number of concepts to learn when unsupervised")
   # Training
@@ -123,29 +122,10 @@ def parse_resnetcbm_args(parser, args):
   parse_glm_args(parser, args)
   return parser
 
-def parse_llamaoracle_args(parser,args):
+def parse_oracle_args(parser,args):
   parser.add_argument("-start_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
   parser.add_argument("-end_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
   parser.add_argument("-ollama_model", type=str, default="llava-phi3", help="Which ollama model to use")
   # Add the ResNet CBM arguments since it uses that as a backbone
-  model = args.model
-  ds = args.dataset.split("_")[0]
-  parser.add_argument("-device", type=str, default="cuda", help="Which device to use")
-  parser.add_argument("-batch_size", type=int, default=512, help="Batch size used when saving model/CLIP activations")
-  
-  parser.add_argument("-backbone", type=str, default="resnet18", help="Which ResNet pretrained model to use as backbone", choices=['resnet18', 'resnet34'])
-  parser.add_argument("-unfreeze", type=int, default=1, help="Number of conv layers to unfreeze from the pretrained model")
-  parser.add_argument("-num_c", type=int, default=64, help="Number of concepts to learn when unsupervised")
-  # Training
-  parser.add_argument("-optimizer", type=str, default="adam", help="Which optimizer to use", choices=['adam', 'adamw', 'sgd'])
-  parser.add_argument("-lr", type=float, default=0.001, help="Learning rate")
-  parser.add_argument("-n_epochs","-e", type=int, default=1000, help="Number of epochs to train for")
-  parser.add_argument("-scheduler_type", type=str, default="plateau", help="Which scheduler to use", choices=['plateau', 'step'])
-  parser.add_argument("-scheduler_kwargs", type=dict, default={}, help="Scheduler kwargs")
-  parser.add_argument("-optimizer_kwargs", type=dict, default={}, help="Optimizer kwargs")
-  parser.add_argument("-balancing_weight", type=float, default=0.4, help="Weight for balancing the loss")
-  parser.add_argument("-patience", type=int, default=10, help="Patience for early stopping")
-  parser.add_argument("-dropout_prob", type=float, default=0.01, help="Dropout probability")
-  parser.add_argument("-val_interval", type=int, default=1, help="Validation interval, every n epochs do validation")
-  parse_glm_args(parser, args)
+  parse_resnetcbm_args(parser,args)
   return parser

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 import torch
 from tqdm import tqdm
+
 def train_LR_on_concepts(conc_pred:torch.tensor,conc_gt:torch.tensor):
     n_concepts = conc_pred.shape[1]
     W = []

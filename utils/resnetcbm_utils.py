@@ -11,6 +11,7 @@ import torch.optim as optim
 import torch.utils.model_zoo as model_zoo
 from torch.optim import lr_scheduler
 from torchvision.models.resnet import Bottleneck, BasicBlock
+from pytorchcv.model_provider import get_model as ptcv_get_model
 
 def get_activations_and_targets(model_class,dataset_name,split,args):
     logger.debug(f'Retrieving labels of {dataset_name} {split}...')
@@ -294,45 +295,77 @@ class PretrainedResNetModel(DeepLearningModel):
         self.conv_layers_before_end_to_unfreeze = args.unfreeze
 
         # ---- Architecture based on selected model ----
-        block = BasicBlock if self.pretrained_model_name in ['resnet18', 'resnet34'] else Bottleneck
-        layers = {
-            'resnet18': [2, 2, 2, 2],
-            'resnet34': [3, 4, 6, 3],
-            'resnet50': [3, 4, 6, 3],
-            'resnet101': [3, 4, 23, 3],
-            'resnet152': [3, 8, 36, 3],
-        }[self.pretrained_model_name]
+        if self.pretrained_model_name == "resnet18_cub":
+            self.target_model = ptcv_get_model("resnet18_cub", pretrained=True)
+            self.target_model.eval()
+            # UNFREEZE 
+            frozen = []
+            for name,param in self.target_model.named_parameters():
+                frozen.append(get_conv_layer_substring(name))
+            
+            if self.conv_layers_before_end_to_unfreeze > 0:
+                layers_to_unfreeze = frozen[-self.conv_layers_before_end_to_unfreeze:]
+            else:
+                layers_to_unfreeze = []
 
-        self.conv1 = torch.nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
-                               bias=False)
-        self.bn1 = torch.nn.BatchNorm2d(64)
-        self.relu = torch.nn.ReLU(inplace=True)
-        self.maxpool = torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        self.avgpool = torch.nn.AdaptiveAvgPool2d(1) # torch.nn.AvgPool2d(7, stride=1)
-        self.dropout = torch.nn.Dropout(self.dropout, inplace=False)
-        self.conv_layer_dims = { 'conv1': 64,
-                                 'conv2': 128,
-                                 'conv3': 256,
-                                 'conv4': 512 }
-        previous_layer_dims = 512 * block.expansion
-        for i, layer in enumerate(self.fc_layers):
-            setattr(self, 'fc' + str(i + 1), torch.nn.Linear(previous_layer_dims, layer))
-            previous_layer_dims = layer
+            for name, param in self.named_parameters():
+                conv_layer_substring = get_conv_layer_substring(name)
+                if conv_layer_substring in layers_to_unfreeze:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False  # Enable training
+            
+            self.fc_layers = [args.num_c]
+            #self.linear = torch.nn.Linear(200,1000)
+            #self.relu = torch.nn.ReLU(inplace=True)
+            previous_layer_dims = 200
+            for i, layer in enumerate(self.fc_layers):
+                setattr(self, 'fc' + str(i + 1), torch.nn.Linear(previous_layer_dims, layer))
+                previous_layer_dims = layer
+            # Move model to GPU
+            self.cuda()
+            # Setup optimizers in the DeepLearningModel class
+            self.setup_optimizers(self.optimizer_name, self.optimizer_kwargs, self.scheduler_kwargs)
+        else:
+            block = BasicBlock if self.pretrained_model_name in ['resnet18', 'resnet34'] else Bottleneck
+            layers = {
+                'resnet18': [2, 2, 2, 2],
+                'resnet34': [3, 4, 6, 3],
+                'resnet50': [3, 4, 6, 3],
+                'resnet101': [3, 4, 23, 3],
+                'resnet152': [3, 8, 36, 3],
+            }[self.pretrained_model_name]
 
-        for m in self.modules():
-            if isinstance(m, torch.nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-            elif isinstance(m, torch.nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
+            self.conv1 = torch.nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+                                bias=False)
+            self.bn1 = torch.nn.BatchNorm2d(64)
+            self.relu = torch.nn.ReLU(inplace=True)
+            self.maxpool = torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+            self.layer1 = self._make_layer(block, 64, layers[0])
+            self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
+            self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+            self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+            self.avgpool = torch.nn.AdaptiveAvgPool2d(1) # torch.nn.AvgPool2d(7, stride=1)
+            self.dropout = torch.nn.Dropout(self.dropout, inplace=False)
+            self.conv_layer_dims = { 'conv1': 64,
+                                    'conv2': 128,
+                                    'conv3': 256,
+                                    'conv4': 512 }
+            previous_layer_dims = 512 * block.expansion
+            for i, layer in enumerate(self.fc_layers):
+                setattr(self, 'fc' + str(i + 1), torch.nn.Linear(previous_layer_dims, layer))
+                previous_layer_dims = layer
 
-        if build:
-            self.build()
+            for m in self.modules():
+                if isinstance(m, torch.nn.Conv2d):
+                    n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                    m.weight.data.normal_(0, math.sqrt(2. / n))
+                elif isinstance(m, torch.nn.BatchNorm2d):
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
+
+            if build:
+                self.build()
 
     # ----------------- Abstract class methods to be implemented per model -----------------
     def get_data_dict_from_dataloader(self, data):
@@ -374,7 +407,12 @@ class PretrainedResNetModel(DeepLearningModel):
         return x
 
     def forward(self, x):
-        x = self.compute_cnn_features(x)
+        if self.pretrained_model_name == "resnet18_cub":
+            x = self.target_model(x)
+            #x = self.linear(x)
+            #x = self.relu(x)
+        else:
+            x = self.compute_cnn_features(x)
         if self.fc_layers:
             N_layers = len(self.fc_layers)
             for i, layer in enumerate(self.fc_layers):

@@ -7,25 +7,48 @@ import os
 from multiprocessing import Pool
 from loguru import logger
 
-CUDA_VISIBLE_DEVICES = '2'
+CUDA_VISIBLE_DEVICES = '1'
 vlg_run = {
     # GRID SEARCH PARAMETERS
-    "-cbl_epochs": [30,
+    "-cbl_epochs": [8,
                     ],
     "-cbl_confidence_threshold":[0.15],
     "-cbl_lr": [0.01],
-    "-crop_to_concept_prob": [0.0, 0.3, 0.5],
-
+    "-crop_to_concept_prob": [0.0],
+    "-cbl_hidden_layers":[3],
     # FIXED PARAMETERS
     "-model": ["vlgcbm"],
-    "-dataset": ["shapes3d",
+    "-dataset": [
+                    "celeba",
+                    "shapes3d"
                 ],
     "-cbl_optimizer": ["adam"],
     "-skip_concept_filter":[""],
     "-wandb":[""],
+    "-seed":["64","65","66","67","68"],
     
 }
 
+vlg_run_cub = {
+    # GRID SEARCH PARAMETERS
+    "-cbl_epochs": [10,
+                    ],
+    "-cbl_confidence_threshold":[0.15],
+    "-cbl_lr": [0.01],
+    "-crop_to_concept_prob": [0.0],
+    "-cbl_hidden_layers":[1],
+    # FIXED PARAMETERS
+    "-model": ["vlgcbm"],
+    "-dataset": [
+                    "cub",
+                ],
+    "-cbl_optimizer": ["adam"],
+    "-skip_concept_filter":[""],
+    "-wandb":[""],
+    "-backbone": ["resnet18_cub"],
+    "-feature_layer": ["features.final_pool"],
+    "-seed":["64","65","66","67","68"],
+}
 resnetcbm_run = {
     # GRID SEARCH PARAMETERS
     "-epochs": [20,
@@ -45,7 +68,23 @@ resnetcbm_run = {
     "-wandb":[""],
     "-seed":["64","65","66","67","68"],
 }
-
+resnetcbm_run_cub = {
+    # GRID SEARCH PARAMETERS
+    "-epochs": [20,
+                    ],
+    "-unfreeze":[5],
+    "-lr": [0.001],
+    "-balanced":[""],
+    "-dropout_prob":[0.01],
+    "-backbone": ["resnet18_cub"],
+    "-batch_size":[128],
+    # FIXED PARAMETERS
+    "-val_interval":[1],
+    "-model": ["resnetcbm"],
+    "-dataset": ["cub"],
+    "-wandb":[""],
+    "-seed":[42]#["64","65","66","67","68"],
+}
 lfcbm_run = {
     # GRID SEARCH PARAMETERS
     
@@ -53,11 +92,30 @@ lfcbm_run = {
     # FIXED PARAMETERS
     "-model": ["lfcbm"],
     "-dataset": [
-                    #"celeba",
+                    "celeba",
                     "shapes3d"
                 ],
     "-wandb":[""],
-    "-seed":["42"],
+    "-seed":["64","65","66","67","68"],
+    "-clip_cutoff": [0.0],
+    "-interpretability_cutoff":[0.0],
+}
+
+lfcbm_run_cub = {
+    # GRID SEARCH PARAMETERS
+    
+
+    # FIXED PARAMETERS
+    "-model": ["lfcbm"],
+    "-dataset": [
+                    "cub",
+                ],
+    "-backbone": ["resnet18_cub"],
+    "-feature_layer": ["features.final_pool"],
+    "-wandb":[""],
+    "-seed":["64","65","66","67","68"],
+    "-clip_cutoff": [0.0],
+    "-interpretability_cutoff":[0.0],
 }
 
 labo_run = {
@@ -67,14 +125,44 @@ labo_run = {
     # FIXED PARAMETERS
     "-model": ["labo"],
     "-dataset": [
-                    #"celeba",
+                    "celeba",
                     "shapes3d"
                 ],
     "-wandb":[""],
-    "-seed":["42"],
+    "-seed":["64","65","66","67","68"],
 }
 
-runs = [lfcbm_run]
+labo_run_cub = {
+    # GRID SEARCH PARAMETERS
+    
+
+    # FIXED PARAMETERS
+    "-model": ["labo"],
+    "-dataset": ["cub"],
+    "-wandb":[""],
+    "-seed":["64","65","66","67","68"],
+}
+
+oracle_run = {
+    # GRID SEARCH PARAMETERS
+    "-epochs": [20,
+                    ],
+    "-unfreeze":[5],
+    "-lr": [0.001],
+    "-balanced":[""],
+    "-dropout_prob":[0.01],
+
+    # FIXED PARAMETERS
+    "-model": ["oracle"],
+    "-dataset": [
+                    "celeba",
+                    "shapes3d"
+                ],
+    "-wandb":[""],
+    "-seed":["64","65","66","67","68"],
+}
+
+runs = [resnetcbm_run_cub]
 
 
 import os

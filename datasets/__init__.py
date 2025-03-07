@@ -39,7 +39,7 @@ class GenericDataset():
           self.n_concepts = dataset_info["n_concepts"] 
           self.concept0_weights = torch.tensor(dataset_info["concept0_weights"])
           self.concept1_weights = torch.tensor(dataset_info["concept1_weights"])
-          self.label_weights = torch.tensor(dataset_info["label_weights"]) 
+          self.label_weights = torch.tensor(dataset_info["label_weights"])
         else:
           self.total_samples = len(self.dataset)
           self.n_concepts = len(self.dataset[0][1])

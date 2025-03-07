@@ -26,11 +26,11 @@ class _Model(torch.nn.Module):
         self.args = args
         
     def forward(self, x):
-        presigmoid_concepts = self.backbone(x) 
-        concepts = torch.nn.functional.sigmoid(presigmoid_concepts)
+        concepts = self.backbone(x) 
+        probs = torch.nn.functional.sigmoid(concepts)
         # Generate random preds with dimension batch_size x 2
         preds = self.final(concepts)
-        out_dict = {'unnormalized_concepts':concepts, 'concepts':concepts, 'preds':preds, 'pre-sigmoid_concepts':presigmoid_concepts}
+        out_dict = {'unnormalized_concepts':concepts, 'concepts':concepts, 'preds':preds, 'concept_probs':probs}
         return out_dict
 
     def load(self):

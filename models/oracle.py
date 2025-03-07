@@ -10,7 +10,7 @@ from utils.args_utils import load_args
 from models.base import BaseModel
 from models.resnetcbm import _Model as ResNet_Model
 
-class LLAMAORACLE(BaseModel):
+class ORACLE(BaseModel):
     def __init__(self, args):
         super().__init__(self, args)
         self.load_dir = args.load_dir

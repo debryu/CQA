@@ -287,6 +287,7 @@ class CUBDataset(Dataset):
         if not self.is_train:
             assert any([("test" in path) or ("val" in path) for path in self.pkl_file_paths])
         
+
         if split == 'train':
             self.data.extend(pickle.load(open(self.pkl_file_paths[0], 'rb')))
         elif split == 'test':
@@ -332,7 +333,7 @@ class CUBDataset(Dataset):
             img = self.transform(img)
         attr_label = img_data['attribute_label']
             
-        return img, attr_label, class_label
+        return img, torch.tensor(attr_label), torch.tensor(class_label)
 
 
 class SKINCON_Original(Dataset):

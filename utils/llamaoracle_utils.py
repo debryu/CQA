@@ -3,17 +3,56 @@ from PIL import Image
 import io
 from loguru import logger
 from tqdm import tqdm
+from config import CLASSES, CONCEPT_SETS
 import torch
 import pickle
 import os
-def query_llama(dl, queries, folder, args, range=None, missing=None):
+import json
+
+PREFIXES = {
+    'cub':"a ",
+}
+
+def query_llama(dl, queries, folder, args, range=None, missing=None, examples=[]):
+    try:
+        prefix = PREFIXES[args.dataset]
+    except:
+        logger.error("PREFIX NOT FOUND!")
+        prefix = ''
+
     output = [] 
     split = os.path.basename(folder)
     n_images = len(dl)
     n_concepts = len(queries)
     c_tensors = []
     avg_invalid_responses = 0
+    total = 0
+    errors = 0
+
+    learn_by_mistakes = []
+
+    # Load Classes
+    with open(CLASSES[args.dataset]) as f:
+        class_names = f.read().split("\n")
+    
+    # Load Concepts
+    with open(CONCEPT_SETS[args.dataset]) as f:
+        concept_names = f.read().split("\n")
+
+    if len(queries) != len(concept_names):
+        raise ValueError("The queries should be same as concepts in number!")
+    
+    with open(f"./data/concepts/{args.dataset}/{args.dataset}_per_class.json", "r") as f:
+        per_class_concepts = json.load(f)
+
     for i, (image, concept, label) in enumerate(tqdm(dl,desc=f"Querying images {split}")):
+        if isinstance(label, torch.Tensor):
+            class_name = class_names[label.item()]
+        else:
+            class_name = class_names[int(label)]
+
+        concepts_to_query = per_class_concepts[class_name]
+
         if range is not None:
             if i < range[0]:
                 continue
@@ -33,41 +72,96 @@ def query_llama(dl, queries, folder, args, range=None, missing=None):
         llama_img = img_byte_arr.getvalue()
         img_byte_arr.close()
 
+        mask = []
+        for definition in queries:
+            if definition in concepts_to_query:
+                mask.append(True)
+            else:
+                mask.append(False)
+
         #chat = []
         c_array = []
         ir = 0
-        for obj in queries:
-            text = f"Does the image contain {obj}?"
-            logger.debug(f"N concepts:{len(queries)}. Query: {text}")
-            messages = [
-                {"role": "user", "content": f"Does the image contain {obj}?", "images": [llama_img]},
-                {"role": "user", "content": f"Please reply only with 'Yes' or 'No'."},
-            ]
-            response = ollama.chat(
-                model = args.ollama_model,
-                options={"temperature":0.0},
-                #model = "x/llama3.2-vision",
-                messages = messages
-            )
-            messages.append(response['message'])
-            llama_response = str(response["message"]['content']).lower().strip()
-            #print(f"Does the image contain {obj}? Reply only with 'Yes' or 'No'.\n")
-            #print(llama_response)
-            if llama_response.startswith("y"):
-                c_array.append(1)
-            elif llama_response.endswith(" yes") or " yes" in llama_response:
-                c_array.append(1)
-            elif llama_response.startswith("n"):
-                c_array.append(0)
-            elif llama_response.endswith(" no") or " no" in llama_response:
-                c_array.append(0)
+        for c_id,obj in enumerate(queries):
+            if mask[c_id]:
+                text = f"Does the image contain {obj}?"
+                #logger.debug(f"N concepts:{len(queries)}. Query: {text}")
+                messages = [
+                    {"role": "user", "content": f"This is an image of {class_name}. Does the image contain {prefix}{obj}?", "images": [llama_img]},
+                ]
+                #logger.debug(messages[0]['content'])
+                #for mistake in learn_by_mistakes:
+                #    messages.append({"role": "user", "content": mistake['prompt'], "images": [mistake['img']]})
+                messages.append({"role": "user", "content": f"Please reply only with 'Yes' or 'No'."})
+                response = ollama.chat(
+                    model = args.ollama_model,
+                    options={"temperature":0.0},
+                    #model = "x/llama3.2-vision",
+                    messages = messages
+                )
+                messages.append(response['message'])
+                llama_response = str(response["message"]['content']).lower().strip()
+                
+                #logger.info(llama_response)
+                
+                if llama_response.startswith("y"):
+                    c_array.append(1)
+                elif llama_response.endswith(" yes") or " yes" in llama_response:
+                    c_array.append(1)
+                elif llama_response.startswith("n"):
+                    c_array.append(0)
+                elif llama_response.endswith(" no") or " no" in llama_response:
+                    c_array.append(0)
+                else:
+                    #logger.debug("Reasoning...")
+                    messages.append({"role":"assistant", "content":llama_response})
+                    messages.append({"role": "assistant", "content": f"Given this information, my 'Yes' or 'No' answer is:\n"})
+
+                    response = ollama.chat(
+                        model = args.ollama_model,
+                        options={"temperature":0.0},
+                        #model = "x/llama3.2-vision",
+                        messages = messages
+                    )
+                    llama_response = str(response["message"]['content']).lower().strip()
+                    #print(llama_response)
+                    if llama_response.startswith("y"):
+                        c_array.append(1)
+                    elif llama_response.endswith(" yes") or " yes" in llama_response:
+                        c_array.append(1)
+                    elif llama_response.startswith("n"):
+                        c_array.append(0)
+                    elif llama_response.endswith(" no") or " no" in llama_response:
+                        c_array.append(0)
+                    else:
+                        c_array.append(0)
+                        ir += 1 
+                    #logger.warning(f"Invalid responses: {ir}")
+                
+                #if int(concept[0][c_id]) == 1 or int(c_array[-1]):
+                #    if int(concept[0][c_id]) != int(c_array[-1]):
+                #        if 'size' not in obj and len(learn_by_mistakes) < 10:
+                #            learn_by_mistakes.append({'img': llama_img,
+                #                                    'prompt': f"For example: does the image contain {obj}? Answer:{c_array[-1]}",
+                #                                    })
+                #        errors += 1
+                #        #print(f"{len(learn_by_mistakes)} {obj}")
+                #    total += 1
+                #    try:
+                #        acc = errors/total
+                #    except:
+                #        acc = 1
+                    #logger.debug(f"[{acc}]")
+                #logger.debug(f"[{acc}] -> Does the image contain {obj}? Answer:{c_array[-1]} - Truth:{int(concept[0][c_id])}")
+                #if int(concept[0][c_id]) == int(c_array[-1]) and int(c_array[-1]) == 1:
+                #    errors += 1
+                #total += 1
+
+                text += "\n" + response["message"]['content']
+                #chat.append(text)
+                #print(c_array)
             else:
                 c_array.append(0)
-                ir += 1 
-                #logger.warning(f"Invalid responses: {ir}")
-            text += "\n" + response["message"]['content']
-            #chat.append(text)
-            #print(c_array)
         avg_invalid_responses += ir
         logger.warning(f"Average invalid responses: {avg_invalid_responses/(i+1)}")
         c_array = torch.tensor(c_array)

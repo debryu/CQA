@@ -10,6 +10,7 @@ from core.eval_models import CQ_Analysis
 #TODO: Implement flags for computing DCI, concept wise metrics, label metrics
 def main():
   parser = argparse.ArgumentParser(description="Evaluate models")
+  parser.add_argument("-folder", type=str, default=None, help="Directory containing multiple models to test")
   parser.add_argument("-load_dir", type=str, default=None, help="Load directory for the model. If not provided, the path in the config will be used")
   parser.add_argument("-force", action="store_true", help="Force the computation from scratch")
   parser.add_argument("-all", action="store_true", help="Compute all possible metrics")

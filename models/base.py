@@ -6,7 +6,7 @@ from torchvision import transforms
 from torchvision.transforms.v2 import ColorJitter, GaussianNoise
 
 from config import SAVED_MODELS_FOLDER
-from datasets import get_dataset
+from datasets import GenericDataset
 
 class BaseModel():
     def __init__(self,*args):
@@ -17,7 +17,7 @@ class BaseModel():
 
     def get_transform(self, split):
       logger.debug(f"Using default method get_transform for {split}")
-      if split == 'train':
+      if split == 'train':  
         return transforms.Compose([
             transforms.ToTensor(),
             transforms.Resize((224,224)),
@@ -36,7 +36,7 @@ class BaseModel():
       logger.debug(f"Using default method get_loader for {split}")
       transform = self.get_transform(split=split)
       dataset_name = self.args.dataset
-      data = get_dataset(dataset_name, split = split, transform = transform)
+      data = GenericDataset(dataset_name, split = split, transform = transform)
       if split == 'train':
         return DataLoader(data, batch_size = self.args.batch_size, shuffle = True)
       else:
@@ -76,21 +76,19 @@ class BaseModel():
         # forward pass
         with torch.no_grad():
             out_dict = self.model(features)
-            logits = out_dict['preds']
+            logits = out_dict['preds'].float()
             c_repres = out_dict['concepts']
-        
-        #print(torch.min(c_repres))
-        #print(torch.max(c_repres))
-        # collect data
-        annotations.append(concepts_one_hot)
-        concepts.append(c_repres)
-        labels.append(targets)
-        preds.append(logits)  
-        
-        # calculate accuracy
-        y_preds = logits.argmax(dim=1)
-        accuracy = (y_preds == targets).sum().item()
-        acc_mean += accuracy
+            #print(c_repres)
+            annotations.append(concepts_one_hot)
+            concepts.append(c_repres)
+            labels.append(targets)
+            preds.append(logits)  
+            
+            # calculate accuracy
+            y_preds = logits.argmax(dim=1)
+            accuracy = (y_preds.to('cpu') == targets.to('cpu')).sum().item()
+            acc_mean += accuracy
+            
         n += len(targets)
         #if debug_i > 5:
         #  break

@@ -116,10 +116,15 @@ CHESTMNIST_GROUND_TRUTH = [
   "Pleural_Thickening",
   "Hernia"
 ]
+
+with open("./data/concepts/cub/cub_preprocess.txt") as f:
+        cub_concepts = f.read().split("\n")
+
 GROUND_TRUTH_CONCEPTS = {
     "celeba": CELEBA_GROUND_TRUTH,
     "shapes3d": SHAPES3D_GROUND_TRUTH,
     "chestmnist": CHESTMNIST_GROUND_TRUTH,
+    "cub": cub_concepts,
 }
 
 def save_IM_as_img(save_path,name,title,importance_matrix,save_plot=True):

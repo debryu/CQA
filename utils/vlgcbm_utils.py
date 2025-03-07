@@ -170,7 +170,10 @@ def get_filtered_concepts_and_counts(
     raw_concepts_count = torch.zeros(len(raw_concepts))
     for data in tqdm(dataloader):
         raw_concepts_count += data[1].sum(dim=0)
-        
+    
+    print(raw_concepts[1])
+    print(raw_concepts[51])
+    logger.debug(f"Filtered concepts index: {torch.where(raw_concepts_count==0)}")
     # remove concepts that are not present in the dataset
     
     raw_concepts_count = raw_concepts_count.numpy()
@@ -562,7 +565,14 @@ class ConceptDataset(Dataset):
 
     def _find_in_list(self, concept: str, bbxs):
         #for bb in bbxs:
-        #    print(bb["label"].strip().replace(" ","_"), "- C:", concept.strip().replace(" ","_"))
+        #   if bb["label"].strip().replace(" ","_") != concept.strip().replace(" ","_"):
+        #        if 'hooked' in concept.strip().replace(" ","_") or 'length' in concept.strip().replace(" ","_"):
+        #            if 'hooked' in bb["label"].strip().replace(" ","_") or 'length' in bb["label"].strip().replace(" ","_"):
+        #                print(bb["label"].strip().replace(" ","_"), "- C:", concept.strip().replace(" ","_"))
+                #if concept.strip().replace(" ","_") == 'hooked seabird bill shape' or concept.strip().replace(" ","_") == 'bill length about the same as head':
+                    
+        #            if bb["label"].strip().replace(" ","_") != concept.strip().replace(" ","_"):
+        #                print(bb["label"].strip().replace(" ","_"), "- C:", concept.strip().replace(" ","_"))
         # randomly pick a bounding box
         # .replace(" _","_").replace(" _","_")
         matched_bbxs = [bbx for bbx in bbxs if concept.strip().replace(" ","_") == bbx["label"].strip().replace(" ","_")]

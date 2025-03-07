@@ -225,6 +225,108 @@ def train(args):
 
     indexed_train_loader = DataLoader(indexed_train_ds, batch_size=args.saga_batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=args.saga_batch_size, shuffle=False)
+    test_loader = DataLoader(test_ds, batch_size=args.saga_batch_size, shuffle=False)
+
+    classes = LABELS[args.dataset.split('_')[0]]
+    linear = torch.nn.Linear(train_c.shape[1],len(classes)).to(args.device)
+    linear.weight.data.zero_()
+    linear.bias.data.zero_()
+    metadata = {}
+    metadata['max_reg'] = {}
+    metadata['max_reg']['nongrouped'] = args.lam
+
+    # Solve the GLM path
+    output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
+                    val_loader=val_loader, test_loader=test_loader, do_zero=False, metadata=metadata, n_ex=train_c.shape[0], n_classes = len(classes))
+                    #balancing_loss_weight = data.label_weights)
+    '''
+    #DEBUGGING
+    train_ds = TensorDataset(train_c, train_y)
+    val_ds = TensorDataset(val_c,val_y)
+    test_ds = TensorDataset(test_c,test_y)
+    train_loader = DataLoader(train_ds, batch_size=64, shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=64, shuffle=True)
+    test_loader = DataLoader(test_ds, batch_size=64, shuffle=True)
+    
+    #linear = torch.nn.Sequential(
+    #    torch.nn.Linear(clip_features.shape[1],1000),
+    #    torch.nn.ReLU(),
+    #    torch.nn.Linear(1000,1000),
+    #   torch.nn.ReLU(),
+    #    torch.nn.Linear(1000,1000),
+    #    torch.nn.ReLU(),
+    #    torch.nn.Linear(1000,len(classes))
+    #).to(args.device)
+    from datasets import GenericDataset
+    bWe = GenericDataset(args.dataset, split='train').label_occurrencies
+    print(bWe)
+    TbWe = torch.zeros(2).to(args.device)
+    TbWe[0] = 1/bWe['0']
+    TbWe[1] = 1/bWe['1']
+    print(TbWe)
+    #bWe = torch.ones(2).to(args.device)
+    #bWe[1]=3
+    loss_fn = torch.nn.CrossEntropyLoss(reduction='mean', weight=TbWe)
+    from sklearn.svm import LinearSVC
+    # Train LinearSVC model
+    clf = LinearSVC(C= 1)
+    import numpy as np
+    all_x = []
+    all_labels = []
+    for batch in train_loader:
+        x,y = batch
+        x = x.to('cuda')
+        y = y.to('cuda')
+        # Store predictions and labels
+        all_x.extend(x.cpu().numpy())  # Move to CPU & convert to NumPy
+        all_labels.extend(y.cpu().numpy())  # Move to CPU & convert to NumPy
+    clf.fit(all_x, all_labels)
+
+    weights = torch.tensor(clf.coef_)
+    bias = torch.tensor(clf.intercept_)
+    print(weights)
+    W_g = torch.cat([-weights/2,weights/2])
+    print(W_g)
+    b_g = torch.cat([-bias/2, bias/2])
+    print(torch.topk(weights, k=3, largest=True))
+    print(torch.topk(weights, k=3, largest=False))
+
+    n_concepts_final_layer = train_c.shape[1]
+    logger.debug(f"N. of concepts in the final bottleneck: {n_concepts_final_layer}")
+    # add n_concepts to the args
+    setattr(args, 'n_concepts_final_layer', n_concepts_final_layer)
+    linear = torch.nn.Linear(train_c.shape[1],len(classes)).to(args.device)
+    #linear.load_state_dict({"weight":W_g, "bias":b_g})
+    
+
+    from sklearn.metrics import classification_report
+    # Initialize lists to store predictions and ground truth labels
+    all_preds = []
+    all_nn_preds = []
+    all_labels = []
+    losses = []
+    for batch in test_loader:
+        x,y = batch 
+        #print(clf.predict(x.cpu().numpy())[0:2])
+        pred_y = linear(x.to(args.device))
+        #print(torch.argmax(pred_y[0:2], dim=1)[0:2])
+        nn_pred_y = torch.argmax(pred_y, dim=1)
+        #print(nn_pred_y)
+        #loss = loss_fn(pred_y,y.to(args.device))
+        #losses.append(loss.item())
+        # Make predictions
+        all_nn_preds.extend(nn_pred_y.cpu().numpy())
+        all_preds.extend(clf.predict(x.cpu().numpy()))
+        all_labels.extend(y.cpu().numpy())  # Move to CPU & convert to NumPy
+    print(np.mean(losses))
+    # Compute classification report
+    report = classification_report(all_labels, all_preds, digits=4)
+    print(report)
+    #report = classification_report(all_labels, all_nn_preds, digits=4, output_dict=True)
+    #print(report)
+    
+    indexed_train_loader = DataLoader(indexed_train_ds, batch_size=args.saga_batch_size, shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=args.saga_batch_size, shuffle=False)
     test_loader = DataLoader(test_ds, batch_size=args.saga_batch_size, shuffle=False) 
     # Make linear model and zero initialize
     n_concepts_final_layer = train_c.shape[1]
@@ -244,6 +346,7 @@ def train(args):
     # Solve the GLM path
     output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
                       val_loader=val_loader, test_loader=test_loader, do_zero=False, metadata=metadata, n_ex=len(target_features), n_classes = len(classes))
+    '''
     W_g = output_proj['path'][0]['weight']
     b_g = output_proj['path'][0]['bias']
     

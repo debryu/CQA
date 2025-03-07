@@ -1,3 +1,4 @@
+import torch.optim
 from datasets import get_dataset
 from torch.utils.data import Subset
 import torch
@@ -5,8 +6,88 @@ import pickle
 from datasets.dataset_classes import SKINCON_Original, CHESTMINST_Dataset
 from tqdm import tqdm
 from datasets import GenericDataset
+from torchvision import transforms
+import numpy as np
+t = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((224,224)),
+        ])
+ds_train = GenericDataset('cub', split = 'train', transform = t)
+model = torch.nn.Linear(112,200).to('cuda')
+torch.nn.init.zeros_(model.weight)
+torch.nn.init.zeros_(model.bias)
+loader = torch.utils.data.DataLoader(ds_train, shuffle=True, batch_size=64)
+loss_fn = torch.nn.CrossEntropyLoss(reduction='mean')
+optmizer = torch.optim.Adam(model.parameters(), lr = 0.0001)
 
-data = GenericDataset('celeba', split = 'val')
+best_loss_discrete = 1000000
+for e in range(10):
+    train_losses = []
+    #print(output['collapsed_concepts'][0])
+    for batch in tqdm(loader):
+        _, _in, _gt = batch
+        #print(_in)
+        _in = 2000*(_in.to('cuda').to(torch.float) - 0.5)
+        #print(_in)
+        _gt = _gt.to('cuda').to(torch.long)
+        #print(_in)
+        #print(output['concepts_gt'])
+        result = model(_in)
+        #print(result)
+        #print(_gt)
+        loss = loss_fn(result,_gt)
+        train_losses.append(loss.item())
+        optmizer.zero_grad()
+        loss.backward()
+        optmizer.step()
+    print(np.mean(train_losses))
+    if np.mean(train_losses) < best_loss_discrete:
+        best_loss_discrete = np.mean(train_losses)
+    #logger.info(f"Epoch {e} train loss: {np.mean(train_losses)}")
+
+weights = model.weight
+print(best_loss_discrete)
+print(torch.topk(weights,3)[1])
+
+asd
+dataloader = torch.utils.data.DataLoader(ds_train, batch_size=1024, shuffle=True)
+lin = torch.nn.Linear(42,2).to('cuda')
+loss_fn = torch.nn.CrossEntropyLoss(reduction = 'mean')
+optim = torch.optim.Adam(lin.parameters(), lr = 0.01)
+for e in range(200):
+    t_losses = []
+    for batch in dataloader:
+        _,c,l = batch
+        c = c.to('cuda').float()
+        l = l.to('cuda').long()
+        preds = lin(c)
+        optim.zero_grad()
+        loss = loss_fn(preds, l)
+        optim.step()
+        t_losses.append(loss.item())
+    print(np.mean(t_losses))
+asd
+
+
+occurred = []
+for i in range(len(data)):
+    img, c, l = data[i]
+    #print(l.item())
+    if l.item() in occurred:
+        continue
+    else:
+        occurred.append(l.item())
+        print(l.item())
+
+with open("./data/cub/CUB_200_2011/classes.txt") as f:
+    classes = f.read().split("\n")
+
+
+for o in occurred:
+    print(classes[o])
+print(len(classes))
+asd
+
 
 sample = data[0]
 c_w = data.get_concept_weights(0)

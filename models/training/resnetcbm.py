@@ -29,6 +29,9 @@ def train(args):
 
     model_class = RESNETCBM(args)
     train_model = model_class.model
+    logger.info(f"Model: {train_model}")
+    for name, param in train_model.named_parameters():
+        logger.debug(f"{name}: requires_grad={param.requires_grad}")
     #trained_model = PretrainedResNetModel(args)
     transform = model_class.get_transform(split = 'train')
     args.transform = str(transform)
@@ -169,6 +172,8 @@ def train(args):
     # Solve the GLM path
     output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
                     val_loader=val_loader, test_loader=test_loader, do_zero=False, metadata=metadata, n_ex=train_activ_dict['n_examples'], n_classes = len(classes))
+                    #balancing_loss_weight = data.label_weights)
+    
     W_g = output_proj['path'][0]['weight']
     b_g = output_proj['path'][0]['bias']
             
