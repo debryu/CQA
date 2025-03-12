@@ -1,4 +1,4 @@
-from torchvision import models
+from torchvision import models, transforms
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from pytorchcv.model_provider import get_model as ptcv_get_model
 import sys
@@ -170,9 +170,7 @@ def get_filtered_concepts_and_counts(
     raw_concepts_count = torch.zeros(len(raw_concepts))
     for data in tqdm(dataloader):
         raw_concepts_count += data[1].sum(dim=0)
-    
-    print(raw_concepts[1])
-    print(raw_concepts[51])
+
     logger.debug(f"Filtered concepts index: {torch.where(raw_concepts_count==0)}")
     # remove concepts that are not present in the dataset
     
@@ -1124,3 +1122,54 @@ def per_class_accuracy(
         "Overall accuracy": f"{total_accuracy*100.0:.2f}",
         "Datapoints": f"{total_datapoints}",
     }
+
+
+
+class AnnotatedDataset(torch.utils.data.Dataset):
+        # Store some variables
+        def __init__(self,**kwargs):
+            split = kwargs.get('split')
+            if 'transform' in kwargs.keys():
+                self.transform = kwargs.get('transform')
+            else:
+                self.transform = None
+            self.train_concepts = kwargs.get('train_concepts')
+            super().__init__()
+            self.original_ds = kwargs.get('original_ds')
+            #print(len(self.original_ds),len(self.train_concepts))
+            assert len(self.original_ds)==len(self.train_concepts)
+        
+        def __len__(self):
+            return len(self.original_ds)
+        
+        def __getitem__(self, index: int):
+            x,c,y = self.original_ds[index]
+            if self.transform:
+                x = self.transform(x)
+            llama_c = self.train_concepts[index]
+            return x, llama_c, y
+
+class ClipDataset(torch.utils.data.Dataset):
+        # Store some variables
+        def __init__(self,clip_activations:torch.tensor):
+            self.clip_activations = clip_activations
+            super().__init__()
+            
+        def __len__(self):
+            return self.clip_activations.shape[0]
+        
+        def __getitem__(self, index: int):
+            return 0, self.clip_activations[index], 0
+
+def get_save_names(clip_name, target_name, target_layer, d_probe, concept_set, pool_mode, save_dir):
+    PM_SUFFIX = {"max":"_max", "avg":""}
+    if target_name.startswith("clip_"):
+        target_save_name = "{}/{}_{}.pt".format(save_dir, d_probe, target_name.replace('/', ''))
+    else:
+        target_save_name = "{}/{}_{}_{}{}.pt".format(save_dir, d_probe, target_name, target_layer,
+                                                 PM_SUFFIX[pool_mode])
+    clip_save_name = "{}/{}_clip_{}.pt".format(save_dir, d_probe, clip_name.replace('/', ''))
+    concept_set_name = (concept_set.split("/")[-1]).split(".")[0]
+    text_save_name = "{}/{}_conceptset_{}.pt".format(save_dir, concept_set_name, clip_name.replace('/', ''))
+    
+    return target_save_name, clip_save_name, text_save_name
