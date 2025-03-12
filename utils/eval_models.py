@@ -22,5 +22,25 @@ def train_LR_on_concepts(conc_pred:torch.tensor,conc_gt:torch.tensor):
     
     return torch.tensor(W),torch.tensor(B)
 
+def train_LR_global(conc_pred:torch.tensor,conc_gt:torch.tensor):
+    n_concepts = conc_pred.shape[1]
+    W = []
+    B = []
+
+    X = conc_pred.numpy().reshape(-1).reshape(-1,1)  # sklearn requires 2d input 
+    y = conc_gt.numpy().reshape(-1)
+    print(X.shape)
+    print(y.shape)
+    LR = LogisticRegression(class_weight='balanced')
+    LR.fit(X,y)
+    w = LR.coef_[0][0]  # Slope
+    b = LR.intercept_[0] # Intercept
+    W.append(w)
+    B.append(b)
+    zeros = np.count_nonzero(LR.predict(X) == 0)
+    print(zeros, len(y))
+    
+    return torch.tensor(W),torch.tensor(B)    
+
 
 
