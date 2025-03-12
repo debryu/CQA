@@ -55,6 +55,8 @@ def train(args):
     #fr = compute_imbalance(data)
     balancing_weight = args.balancing_weight
     if args.balanced:
+        logger.debug("Balancing enabled, retrieving weights...")
+        print(data.dataset)
         pos_weights = data.get_pos_weights()
         #loss_s.append(torch.nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor(pos_weights).cuda()))
         loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor(pos_weights).cuda())

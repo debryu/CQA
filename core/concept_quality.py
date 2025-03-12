@@ -87,7 +87,7 @@ class CONCEPT_QUALITY():
     _output = copy.deepcopy(self.output)
     if self.args.model in REQUIRES_SIGMOID:
       logger.info("Training Logistic Regression on Concepts")
-      W,B = train_LR_on_concepts(_output['concepts_pred'],_output['concepts_gt'])
+      W,B = train_LR_on_concepts(self.output_train['concepts_pred'],self.output_train['concepts_gt'])
       _output['concepts_pred'] *= W
       _output['concepts_pred'] += B
 
@@ -99,7 +99,7 @@ class CONCEPT_QUALITY():
     _output['concepts_probs'] = torch.nn.functional.sigmoid(_output['concepts_pred'])
     #self.metrics.update(l)
     num_labels = _output['labels_pred'].shape[1]
-    #auto_leakage(self.output_train, self.output_val, _output, num_labels)
+    auto_leakage(self.output_train, self.output_val, _output, num_labels)
 
     # Always compute auc roc on raw concept predictions, this is handled inside the function
     a = compute_AUCROC_concepts(_output, self.model.args)

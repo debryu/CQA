@@ -128,6 +128,9 @@ class CelebA(Subset):
         label: the index of the attribute to use as label
         '''
         assert type(label) == int # label must be an integer
+        self.train_subset_indexes = train_subset_indices
+        self.val_subset_indexes = val_subset_indices
+        self.test_subset_indexes = test_subset_indices
         self.has_concepts = True
         if split == 'train':
             self.data = CelebAOriginal(root=root,split=split,target_type=target_type,transform=transform,target_transform=target_transform,download=download,concepts=concepts,label=label)

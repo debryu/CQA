@@ -23,13 +23,23 @@ logger.debug(f"Available datasets: {classes}")
 
 class GenericDataset():
     def __init__(self, ds_name, **kwargs):
+        #print(ds_name)
         self.dataset = get_dataset(ds_name, **kwargs)
         base = ds_name.split("_")[0]
         if 'root' in kwargs:
           self.root = kwargs['root']
         else:
           self.root = DATASETS_FOLDER_PATHS[base]
-
+        # Load the annotated frequencies
+        # only on the train and val set
+        if ds_name.endswith("_oracle") and 'split' in kwargs.keys():
+          # If we evaluate (on test set) the dataset needs to be the original with ground truth values
+          # On the other hand, for training and validation we use the dataset annotated by the LLM oracle
+          if kwargs['split'] != 'test':
+            self.root = os.path.join(self.root,'oracle')
+            os.makedirs(self.root, exist_ok=True)
+        print(f"{self.root}/dataset_info.json")
+        
         logger.debug(f"Loading dataset {ds_name} from {self.root}")
         if os.path.exists(f"{self.root}/dataset_info.json"):
           dataset_info = json.load(open(f"{self.root}/dataset_info.json"))
@@ -57,6 +67,7 @@ class GenericDataset():
               "concept1_weights": self.concept1_weights.tolist(),
               "label_weights": self.label_weights.tolist()
           }
+          print("Saving to ", f"{self.root}/dataset_info.json")
           with open(f"{self.root}/dataset_info.json", "w") as f:
               json.dump(dataset_info, f, indent=4)
           
@@ -105,8 +116,11 @@ class GenericDataset():
     
 
 def get_dataset(ds_name,**kwargs):
-  if ds_name.endswith("_oracle") and kwargs['split'] == 'test':
-    ds_name = ds_name.split("_")[0]
+  if ds_name.endswith("_oracle") and 'split' in kwargs.keys():
+      # If we evaluate (on test set) the dataset needs to be the original with ground truth values
+      # On the other hand, for training and validation we use the dataset annotated by the LLM oracle
+      if kwargs['split'] == 'test':
+        ds_name = ds_name.split("_")[0]
   if ds_name not in classes:
     raise ValueError(f"Dataset {ds_name} not found in dataset_classes")
   else:
