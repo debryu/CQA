@@ -10,15 +10,24 @@ import os
 import json
 
 PREFIXES = {
-    'cub':"a ",
+    'cub':"a",
+    'celeba': "a person with",
+    'shapes3d': "a",
 }
-
+SUFFIXES = {
+    'celeba': "feature",
+}
 def query_llama(dl, queries, folder, args, range=None, missing=None, examples=[]):
     try:
-        prefix = PREFIXES[args.dataset]
+        prefix = PREFIXES[args.dataset] + " "
     except:
         logger.error("PREFIX NOT FOUND!")
         prefix = ''
+    try:
+        suffix = " " + SUFFIXES[args.dataset]
+    except:
+        logger.error("PREFIX NOT FOUND!")
+        suffix = ''
 
     output = [] 
     split = os.path.basename(folder)
@@ -40,18 +49,35 @@ def query_llama(dl, queries, folder, args, range=None, missing=None, examples=[]
         concept_names = f.read().split("\n")
 
     if len(queries) != len(concept_names):
+        print(len(queries), len(concept_names))
         raise ValueError("The queries should be same as concepts in number!")
     
     with open(f"./data/concepts/{args.dataset}/{args.dataset}_per_class.json", "r") as f:
         per_class_concepts = json.load(f)
 
     for i, (image, concept, label) in enumerate(tqdm(dl,desc=f"Querying images {split}")):
+        # The dataset may start at a specific index != 0, so need to correct that
+        # In most cases, this will be 0 so nothing happens.
+        if hasattr(dl.dataset,f'{split}_subset_indexes'):
+            i += dl.dataset.train_subset_indexes[0]
+            
         if isinstance(label, torch.Tensor):
             class_name = class_names[label.item()]
+            class_id = label.item()
         else:
             class_name = class_names[int(label)]
+            class_id = int(label)
 
-        concepts_to_query = per_class_concepts[class_name]
+        if args.dataset == 'celeba':
+            # In celeba there are only 2 class, so the concepts to query are 39 minus the concepts 
+            # relevant to the opposite class
+            concepts_relevant_to_opposite = per_class_concepts[class_names[(class_id+1)%2]]
+            #print(concepts_relevant_to_opposite)
+            concepts_to_query = [item for item in queries if item not in concepts_relevant_to_opposite]
+            #print(concept_names)
+            print(len(concepts_to_query))
+        else:
+            concepts_to_query = per_class_concepts[class_name]
 
         if range is not None:
             if i < range[0]:
@@ -87,7 +113,7 @@ def query_llama(dl, queries, folder, args, range=None, missing=None, examples=[]
                 text = f"Does the image contain {obj}?"
                 #logger.debug(f"N concepts:{len(queries)}. Query: {text}")
                 messages = [
-                    {"role": "user", "content": f"This is an image of {class_name}. Does the image contain {prefix}{obj}?", "images": [llama_img]},
+                    {"role": "user", "content": f"This is an image of {class_name}. Does the image contain {prefix}{obj}{suffix}?", "images": [llama_img]},
                 ]
                 #logger.debug(messages[0]['content'])
                 #for mistake in learn_by_mistakes:
