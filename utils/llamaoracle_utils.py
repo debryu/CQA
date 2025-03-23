@@ -21,12 +21,12 @@ def query_llama(dl, queries, folder, args, range=None, missing=None, examples=[]
     try:
         prefix = PREFIXES[args.dataset] + " "
     except:
-        logger.error("PREFIX NOT FOUND!")
+        logger.warning("PREFIX NOT FOUND!")
         prefix = ''
     try:
         suffix = " " + SUFFIXES[args.dataset]
     except:
-        logger.error("PREFIX NOT FOUND!")
+        logger.warning("PREFIX NOT FOUND!")
         suffix = ''
 
     output = [] 
@@ -60,8 +60,9 @@ def query_llama(dl, queries, folder, args, range=None, missing=None, examples=[]
         # In most cases, this will be 0 so nothing happens.
         if hasattr(dl.dataset,f'{split}_subset_indexes'):
             i += dl.dataset.train_subset_indexes[0]
-            
+        
         if isinstance(label, torch.Tensor):
+            label = label.long()
             class_name = class_names[label.item()]
             class_id = label.item()
         else:
@@ -75,7 +76,19 @@ def query_llama(dl, queries, folder, args, range=None, missing=None, examples=[]
             #print(concepts_relevant_to_opposite)
             concepts_to_query = [item for item in queries if item not in concepts_relevant_to_opposite]
             #print(concept_names)
-            print(len(concepts_to_query))
+            #print(len(concepts_to_query))
+        elif args.dataset == 'shapes3d':
+            rel_concepts = per_class_concepts[class_names[(class_id)]]
+            #print(class_id)
+            #print(rel_concepts)
+            if rel_concepts == []:
+                concepts_to_query = queries
+            else:
+                concepts_to_query = [item for item in queries if item in rel_concepts]
+                #print(concepts_to_query)
+
+            #print(concepts_to_query)
+            #asd
         else:
             concepts_to_query = per_class_concepts[class_name]
 

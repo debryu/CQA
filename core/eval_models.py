@@ -114,6 +114,7 @@ def eval_model(arguments):
         if CQA.main_args.wandb:
             CQA.log_metrics()
             wandb.finish()
+        CQA.dump_metrics()
         CQA.save()
 
     except Exception as e:

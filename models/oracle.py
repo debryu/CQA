@@ -28,10 +28,16 @@ class ORACLE(BaseModel):
 
     # Load the LLM-annotated dataset when the split is train or val, otherwise load ground truth dataset for test evaluations.
     def get_loader(self, split):
+        dataset_name = self.args.dataset
+        dataset = dataset_name.split("_")[0]
+        transform = self.get_transform(split=split)
+        data = GenericDataset(dataset, split = split, transform = transform)
+        if split == 'train':
+            return DataLoader(data, batch_size = self.args.batch_size, shuffle = True)
+        else:
+            return DataLoader(data, batch_size = self.args.batch_size, shuffle = False)
+
         if split != 'test':
-            transform = self.get_transform(split=split)
-            dataset_name = self.args.dataset
-            dataset = dataset_name.split("_")[0]
             gt_data = GenericDataset(ds_name=f"{dataset}", split=split, transform=transform)
             used_indexes = SPLIT_INDEXES[f"{dataset}_{split}"]
             concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth"), weights_only=True) 
@@ -43,6 +49,7 @@ class ORACLE(BaseModel):
                 return DataLoader(oracle_data, batch_size = self.args.batch_size, shuffle = False)
         else:
             logger.debug(f"Using default method get_loader for {split}")  
-            return super().get_loader(split)
+            data = GenericDataset(dataset, split = split, transform = transform)
+            return DataLoader(data, batch_size = self.args.batch_size, shuffle = False)
       
         

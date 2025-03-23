@@ -234,7 +234,6 @@ class LABO(BaseModel):
             concepts.append(c_repres)
             labels.append(targets)
             preds.append(logits)  
-            
             # calculate accuracy
             y_preds = logits.argmax(dim=1)
             accuracy = (y_preds.to('cpu') == targets.to('cpu')).sum().item()
@@ -255,6 +254,7 @@ class LABO(BaseModel):
         "labels_pred": preds,
         "accuracy": acc_mean / len(loader.dataset)
       }
+
       return out_dict
 
 
