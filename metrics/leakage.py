@@ -446,11 +446,14 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, e
     gt_labels = []
     for sample in tqdm(data, desc='Computing Correlation Matrix'):
         _,c,l = sample
-        gt_concepts.append(c)
+        gt_concepts.append(torch.tensor(c))
         gt_labels.append(l)
     
-    gt_concepts = torch.tensor(gt_concepts)
+    gt_concepts = torch.stack(gt_concepts, dim=0)
+    #print(gt_concepts.shape)
     gt_labels = torch.tensor(gt_labels)
+    #print(gt_labels.shape)
+    
     # Compute the concept correlation matrix vs the label
     #print(output_train['labels_gt'][:1000])    
     subs = torch.arange(len(output_train['concepts_gt']))  # Tensor: [0, 1, 2, ..., 9]
@@ -537,7 +540,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, e
     
     last_c_model_W = None
 
-    if dataset == 'shapes3d':
+    if dataset.split("_")[0] == 'shapes3d':
         # How concepts are distributed
         # from 0 to 9, the concept are about wall colors, etc.
         concept_shapes3d = {'wall color':9,
@@ -615,16 +618,20 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, e
             #opy_pred = torch.cat((opy_pred,entropy_batch(probs)), dim=0)
             #print(preds[0:10])
             #print(leak.clf.predict(inp[0:10].cpu()))
-            preds = (preds.cpu() > 0).long()
+            preds = torch.argmax(preds.cpu(), dim=1)
+            #print(preds.shape)
             #print(preds[0:10])
             #print(preds)
+            #print(preds.view(-1))
             predictions.extend(preds)
             labels.extend(out.cpu().tolist())
         
-        
-        
+        #print(predictions)
+        #asd
         entr = torch.mean(opy_pred).cpu()
         #print(classification_report(labels,predictions))
+        print(labels[0:2])
+        print(predictions[0:2])
         accuracies_pred.append(classification_report(labels,predictions,output_dict=True)['macro avg']['f1-score'])
         #print(accuracies_pred[-1])
         #asd
@@ -660,7 +667,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, e
             #print(entropy_batch(probs))
             #opy_gt = torch.cat((opy_gt,entropy_batch(probs)), dim=0)
             #preds = torch.argmax(preds.cpu(), dim=1)
-            preds = (preds.cpu() > 0).long()
+            preds = torch.argmax(preds.cpu(), dim=1)
             #print(preds)
             predictions.extend(preds)
             labels.extend(out.cpu().tolist())
@@ -848,7 +855,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, e
     
     with open(CONCEPT_SETS[dataset.split("_")[0]]) as f:
         concepts = f.read().split("\n")
-    if dataset == 'shapes3d':
+    if dataset.split("_")[0] == 'shapes3d':
         concepts = list(concept_shapes3d.keys())
     # Plot
     x = range(len(accuracies_gt))
@@ -872,7 +879,10 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, e
     #print(indices_inc)
     #ne_wss = indices[indices_inc]
     #print(ne_wss)
-    x_axis_names = [concepts[i] for i in indices.tolist()]
+    if dataset.split("_")[0] == 'shapes3d':
+        x_axis_names = concept_shapes3d.keys()
+    else:
+        x_axis_names = [concepts[i] for i in indices.tolist()]
     plt.xticks(x, x_axis_names, rotation=90)
     # Show plot
     plt.savefig("plot.png", dpi=300, bbox_inches="tight")
