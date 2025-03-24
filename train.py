@@ -14,6 +14,9 @@ Example:
 python train.py -model vlgcbm -dataset celeba -e 5
 
 '''
+##### Certificate Expired, try to override it
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Dynamic flags based on initial flag value.")

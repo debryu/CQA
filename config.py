@@ -48,7 +48,7 @@ def folder_naming_convention(args):
   '''
   return f"{args.model}_{args.dataset}_{args.date}_{args.time}"
 
-METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', 'avg_concept_accuracy', 'avg_concept_f1']
+METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', 'avg_concept_accuracy', 'avg_concept_f1', 'ois', 'leakage']
 
 '''#####################################
    ###       AVAILABLE METRICS       ###
@@ -78,4 +78,8 @@ SPLIT_INDEXES = {
   'shapes3d_train':[0,48000],
   'shapes3d_val':[0,5000],
   'celeba_train':[25000,50000],
+  'celeba_val':[0,5000],
 }
+
+# Put here the datasets you have implemented that do not have concepts
+CONCEPTS_NOT_AVAILABLE = ["cifar10", "cifar100"]
