@@ -3,30 +3,37 @@ SAVED_MODELS_FOLDER = {
   "lfcbm":"./saved_models/",
   "labo":"./saved_models/",
   "resnetcbm":"./saved_models/",
-  "llamaoracle":"./saved_models/",
+  "oracle":"./saved_models/",
   #"lfcbm":"./models/LFC/saved_models/",
 }
 
 ACTIVATIONS_PATH = {
-    "shared":"./data/activations/",   # Share the activations between models and runs to save space
+    "shared":"/mnt/cimec-storage6/shared/assembly/data/activations/",   # Share the activations between models and runs to save space
     "default":"",                     # Save the activation in each of the model folders
 }
 
 DATASETS_FOLDER_PATHS = {
-  "celeba":"/mnt/cimec-storage6/users/nicola.debole/home/data/celeba_manual_download" ,
-  "shapes3d":"./data/shapes3d/",
-  "cifar10":"./data/cifar10/",
-  "cub":"./data/cub/"
+  "celeba":"/mnt/cimec-storage6/shared/cv_datasets/celeba_manual_download" ,
+  "shapes3d":"/mnt/cimec-storage6/shared/cv_datasets/shapes3d" ,
+  #"cifar10":"/mnt/cimec-storage6/shared/cv_datasets/cifar10",
+  "cub":"/mnt/cimec-storage6/shared/cv_datasets/cub/"
 }
 
 CONCEPT_SETS = {
-  "celeba":"./data/concepts/celeba/handmade.txt",
-  "shapes3d":"./data/concepts/shapes3d/shapes3d.txt",
-  "cifar10": "./data/concepts/cifar10/cifar10_filtered.txt",
-  "cub":"./data/concepts/cub/cub_preprocess.txt",
+  "root":"/mnt/cimec-storage6/shared/assembly/data/concepts/",
+  "celeba":"/mnt/cimec-storage6/shared/assembly/data/concepts/celeba/handmade.txt",
+  "shapes3d":"/mnt/cimec-storage6/shared/assembly/data/concepts/shapes3d/shapes3d.txt",
+  "cifar10": "/mnt/cimec-storage6/shared/assembly/data/concepts/cifar10/cifar10_filtered.txt",
+  "cub":"/mnt/cimec-storage6/shared/assembly/data/concepts/cub/cub_preprocess.txt",
 }
 
-LLM_GENERATED_ANNOTATIONS = "./data/llava-phi3_annotations"
+LLM_GENERATED_ANNOTATIONS = "/mnt/cimec-storage6/shared/assembly/data/llava-phi3_annotations"
+
+CLASSES = {
+  'cub':'/mnt/cimec-storage6/shared/assembly/data/concepts/cub/classes.txt',
+  'celeba': '/mnt/cimec-storage6/shared/assembly/data/concepts/celeba/classes.txt',
+  'shapes3d': '/mnt/cimec-storage6/shared/assembly/data/concepts/shapes3d/classes.txt',
+}
 
 LABELS = {
   "celeba": ['male', 'female'],
@@ -64,3 +71,11 @@ METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', '
 '''
 
 REQUIRES_SIGMOID = ['labo', 'lfcbm']
+
+SPLIT_INDEXES = {
+  'cub_train':[0,4796],
+  'cub_val':[0,1198],
+  'shapes3d_train':[0,48000],
+  'shapes3d_val':[0,5000],
+  'celeba_train':[25000,50000],
+}

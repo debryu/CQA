@@ -30,11 +30,11 @@ def check_content(folder, indexes):
 
 
 def create_or_load_oracle_ds(args):
-    start = args.start_idx
-    end = args.end_idx
     concepts_dict = {}
 
     for split in ['train','val']: #,'test']:
+        start = args.start_idx
+        end = args.end_idx
         os.makedirs(LLM_GENERATED_ANNOTATIONS, exist_ok=True)
         os.makedirs(os.path.join(LLM_GENERATED_ANNOTATIONS, args.dataset), exist_ok=True)
         os.makedirs(os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), exist_ok=True)
@@ -49,12 +49,12 @@ def create_or_load_oracle_ds(args):
         ds = get_dataset(ds_name, split=split, transform=t)
         if start is None:
             if hasattr(ds,f'{split}_subset_indexes'):
-                start = ds.train_subset_indexes[0]
+                start = getattr(ds,f"{split}_subset_indexes")[0]
             else:
                 start = 0
         if end is None:
             if hasattr(ds,f'{split}_subset_indexes'):
-                end = ds.train_subset_indexes[1]
+                end = getattr(ds,f"{split}_subset_indexes")[1]
             else:
                 end = len(ds) 
         
@@ -63,7 +63,7 @@ def create_or_load_oracle_ds(args):
             used_indexes = [25000,50000]
         else:
             used_indexes = [0,len(ds)]
-
+            
         logger.debug(f"Used indexes: {used_indexes}")
         missing = []
         # Check if the dataset exists
@@ -96,14 +96,12 @@ def create_or_load_oracle_ds(args):
                         queries.append(c.replace("_"," "))
                 logger.debug(queries)
                 
+                #print(start,end)
                 dl = DataLoader(ds, batch_size=1, shuffle=False)
                 llm_concepts = query_llama(dl, queries, os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), args=args, range=[start,end], missing=missing)
                 concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth"), indexes=used_indexes)
                
         # Compute frequencies
-
-
-
     return concepts_dict
 
 def train(args):

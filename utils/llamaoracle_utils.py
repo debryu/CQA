@@ -52,14 +52,15 @@ def query_llama(dl, queries, folder, args, range=None, missing=None, examples=[]
         print(len(queries), len(concept_names))
         raise ValueError("The queries should be same as concepts in number!")
     
-    with open(f"./data/concepts/{args.dataset}/{args.dataset}_per_class.json", "r") as f:
+    with open(os.path.join(CONCEPT_SETS['root'],f"{args.dataset}/{args.dataset}_per_class.json"), "r") as f:
         per_class_concepts = json.load(f)
 
     for i, (image, concept, label) in enumerate(tqdm(dl,desc=f"Querying images {split}")):
         # The dataset may start at a specific index != 0, so need to correct that
         # In most cases, this will be 0 so nothing happens.
-        if hasattr(dl.dataset,f'{split}_subset_indexes'):
-            i += dl.dataset.train_subset_indexes[0]
+        
+        if hasattr(dl.dataset,f"{split}_subset_indexes"):
+            i += getattr(dl.dataset,f"{split}_subset_indexes")[0]
         
         if isinstance(label, torch.Tensor):
             label = label.long()
@@ -92,6 +93,7 @@ def query_llama(dl, queries, folder, args, range=None, missing=None, examples=[]
         else:
             concepts_to_query = per_class_concepts[class_name]
 
+        
         if range is not None:
             if i < range[0]:
                 continue
