@@ -38,7 +38,7 @@ class GenericDataset():
           if kwargs['split'] != 'test':
             self.root = os.path.join(self.root,'oracle')
             os.makedirs(self.root, exist_ok=True)
-        print(f"{self.root}/dataset_info.json")
+        #print(f"{self.root}/dataset_info.json")
         
         logger.debug(f"Loading dataset {ds_name} from {self.root}")
         if os.path.exists(f"{self.root}/dataset_info.json"):

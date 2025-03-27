@@ -1,49 +1,102 @@
 
-from config import CONCEPT_SETS, LLM_GENERATED_ANNOTATIONS
+from config import CONCEPT_SETS, LLM_GENERATED_ANNOTATIONS, ACTIVATIONS_PATH, DINO_GENERATED_ANNOTATIONS
 from loguru import logger
+from torchvision import transforms
 import scripts.utils
+import torchvision
 import torch
 from datasets import GenericDataset
 from sklearn.metrics import classification_report
-from utils.eval_models import train_LR_global, train_LR_on_concepts
+from utils.eval_models import train_LR_global, train_LR_on_concepts, train_LR_on_concepts_shapes3d
 import numpy as np
 import os
 import copy
-dataset = 'cub'
+from tqdm import tqdm
+from matplotlib import pyplot as plt
+dataset = 'shapes3d'
 device = 'cuda'
-confidence_threshold = 0.15
-annotation_dir = "./data/VLG_annotations/"
-activation_dir = "./data/activations/"
+confidence_threshold = 0.10
+annotation_dir = DINO_GENERATED_ANNOTATIONS
+
+activation_dir = ACTIVATIONS_PATH['shared']
 concept_set = CONCEPT_SETS[dataset]
 
 
 def compute(loader, dataset_name, n_concepts, name = ''):
     #print(dataset_name)
-    gt_data = GenericDataset(dataset_name, split = 'train')
+    if dataset_name == 'vlgcbm_paper_cub':
+        ds_base = 'cub'
+    else:
+        ds_base = dataset_name
+    gt_data = GenericDataset(ds_base, split = 'train')
     index = 0
     all_preds = []
     all_gts = []
-    for sample in loader:
-        _,gt_concepts,gt_labels = gt_data[index]
-        _,pred_concepts,pred_labels = sample
-        pred_concepts = pred_concepts.squeeze().cpu()
-        gt_concepts = gt_concepts.cpu()
+    for sample in tqdm(loader):
+        img,gt_concepts,gt_labels = gt_data[index]
+        
+        img2,pred_concepts,pred_labels = sample
+        pred_concepts = pred_concepts.squeeze().cpu().long()
+        if isinstance(gt_concepts, torch.Tensor):
+            gt_concepts = gt_concepts.cpu()
+        else:
+            gt_concepts = torch.tensor(gt_concepts)
         #print(sample)
+        try:
+            if index >= 6 and index <= 6:
+                img.save(f"./scripts/img_{index}.png")
+                img2_pil = torchvision.transforms.functional.to_pil_image(img2.squeeze(dim=0))
+                img2_pil.save(f"./scripts/img2_{index}.png")
+                print(pred_concepts, pred_concepts.shape)
+                print(gt_concepts, gt_concepts.shape)
+        except:
+            pass
+        
         all_preds.append(pred_concepts)
         all_gts.append(gt_concepts)
         index += 1
-        if index > 100:
-            break
+        
     all_preds = torch.stack(all_preds, dim=0)
     all_gts = torch.stack(all_gts, dim=0)
+    print(all_preds.shape)
+    print(all_gts.shape)
     if dataset == 'shapes3d':
-        pass
+        macro_avg_precision = []
+        macro_avg_recall = []
+        micro_avg_precision = []
+        micro_avg_recall = []
+        avg_f1 = []
+        concept_groups = [10, 10, 10, 8, 4]  # 10 for wall color, 10 background color, 10 object color, 8 sizes and 4 shapes
+        start = 0
+        for size in concept_groups:
+            chunk_gt = all_gts[:,start:start + size]  # Extract the chunk
+            chunk_preds = all_preds[:,start:start + size]  # Extract the chunk
+            report = classification_report(chunk_gt,chunk_preds, output_dict=True)
+            print("a",chunk_gt[0:2])
+            print("b",chunk_preds[0:2])
+            #print(chunk_preds[0])
+            #print(report)
+            start += size  # Move to the next chunk
+            macro_avg_precision.append(report['macro avg']['precision'])
+            macro_avg_recall.append(report['macro avg']['recall'])
+            micro_avg_precision.append(report['weighted avg']['precision'])
+            micro_avg_recall.append(report['weighted avg']['recall'])
+            avg_f1.append(report['macro avg']['f1-score'])
+        
+        print(f"Annotator {name}:")
+        print("Macro average Precision:",np.mean(macro_avg_precision), f"STD:{np.std(macro_avg_precision)}","  Max:", np.max(macro_avg_precision), "  Min:", np.min(macro_avg_precision))
+        print("Macro average Recall:",np.mean(macro_avg_recall), f"STD:{np.std(macro_avg_precision)}","  Max:", np.max(macro_avg_recall), "  Min:", np.min(macro_avg_recall))
+        print("Micro average Precision:",np.mean(micro_avg_precision), "  Max:", np.max(micro_avg_precision), "  Min:", np.min(micro_avg_precision))
+        print("Micro average Recall:",np.mean(micro_avg_recall), "  Max:", np.max(micro_avg_recall), "  Min:", np.min(micro_avg_recall))
+        print(f"F1 {np.mean(avg_f1)}")
+        print("\n")
     else:
         macro_avg_precision = []
         macro_avg_recall = []
         micro_avg_precision = []
         micro_avg_recall = []
         avg_f1 = []
+        print(classification_report(all_gts,all_preds))
         for i in range(n_concepts):
             report = classification_report(all_gts[:,i],all_preds[:,i], output_dict=True)
             #print(classification_report(all_gts[:,i],all_preds[:,i]))
@@ -54,8 +107,8 @@ def compute(loader, dataset_name, n_concepts, name = ''):
             avg_f1.append(report['macro avg']['f1-score'])
             #print(report)
         print(f"Annotator {name}:")
-        print("Macro average Precision:",np.mean(macro_avg_precision), "  Max:", np.max(macro_avg_precision), "  Min:", np.min(macro_avg_precision))
-        print("Macro average Recall:",np.mean(macro_avg_recall), "  Max:", np.max(macro_avg_recall), "  Min:", np.min(macro_avg_recall))
+        print("Macro average Precision:",np.mean(macro_avg_precision), f"STD:{np.std(macro_avg_precision)}","  Max:", np.max(macro_avg_precision), "  Min:", np.min(macro_avg_precision))
+        print("Macro average Recall:",np.mean(macro_avg_recall), f"STD:{np.std(macro_avg_precision)}","  Max:", np.max(macro_avg_recall), "  Min:", np.min(macro_avg_recall))
         print("Micro average Precision:",np.mean(micro_avg_precision), "  Max:", np.max(micro_avg_precision), "  Min:", np.min(micro_avg_precision))
         print("Micro average Recall:",np.mean(micro_avg_recall), "  Max:", np.max(micro_avg_recall), "  Min:", np.min(micro_avg_recall))
         print(f"F1 {np.mean(avg_f1)}")
@@ -74,7 +127,7 @@ def GDino():
     ) = scripts.utils.get_filtered_concepts_and_counts(
         dataset,
         raw_concepts,
-        preprocess=backbone.preprocess,
+        preprocess=transforms.ToTensor(),#backbone.preprocess,
         val_split=0.0,
         batch_size=64,
         num_workers=1,
@@ -89,11 +142,11 @@ def GDino():
             dataset,
             "train",
             concepts,
-            preprocess=backbone.preprocess,
+            preprocess=transforms.ToTensor(),
             val_split=0.0,
             batch_size=1,
             num_workers=1,
-            shuffle=True,  # shuffle for training
+            shuffle=False, 
             confidence_threshold=confidence_threshold,
             crop_to_concept_prob=0.0,  # crop to concept
             label_dir=annotation_dir,
@@ -110,8 +163,10 @@ def GDino():
 def LLava():
     if dataset=='cub':
         used_indexes = [0,4796]
-    elif dataset == 'celeba':
-        pass
+    if dataset=='celeba':
+        used_indexes = [25000,50000]
+    if dataset == 'shapes3d':
+        used_indexes = [0,48000]
     else:
         pass
     from torchvision import transforms
@@ -140,6 +195,10 @@ def Clip():
         c_set = os.path.join(concept_set,'handmade.txt')
         f_layer = 'layer4'
         backb = 'clip_RN50'
+    if dataset == 'shapes3d':
+        c_set = os.path.join(concept_set,'shapes3d.txt')
+        f_layer = 'layer4'
+        backb = 'clip_RN50'
         
     target_save_name, clip_save_name, text_save_name = scripts.utils.get_save_names(clip_name, backb, 
                                             f_layer,d_train, c_set, "avg", activation_dir)
@@ -162,7 +221,7 @@ def Clip():
         clip_features = image_features @ text_features.T    
 
         del image_features
-
+    
     #----------------- Without Training
     cf = copy.deepcopy(clip_features)
     probs = torch.nn.functional.sigmoid(cf)   
@@ -171,6 +230,7 @@ def Clip():
     loader = torch.utils.data.DataLoader(clip_ds,batch_size=1,shuffle=False)
     original_ds = GenericDataset(ds_name=dataset, split = 'train')
     n_concepts = original_ds[0][1].shape[0]
+    '''
     compute(loader, dataset, n_concepts=n_concepts, name='CLIP - raw')
 
     #----------------- Training one param
@@ -178,6 +238,8 @@ def Clip():
     targets = []
     for i in range(len(original_ds)):
         _,concepts,_ = original_ds[i]
+        if not isinstance(concepts, torch.Tensor):
+            concepts = torch.tensor(concepts)
         targets.append(concepts)
     targets = torch.stack(targets, dim=0)
     W,B = train_LR_global(cf,targets)
@@ -191,22 +253,61 @@ def Clip():
     original_ds = GenericDataset(ds_name=dataset, split = 'train')
     n_concepts = original_ds[0][1].shape[0]
     compute(loader, dataset, n_concepts=n_concepts, name='CLIP - one LR')
-
+    '''
     #----------------- Training one param for each concept
     cf = copy.deepcopy(clip_features)
     targets = []
     for i in range(len(original_ds)):
         _,concepts,_ = original_ds[i]
+        if not isinstance(concepts, torch.Tensor):
+            concepts = torch.tensor(concepts)
         targets.append(concepts)
     targets = torch.stack(targets, dim=0)
     logger.info("Training Logistic Regression on All Concepts")
-    W,B = train_LR_on_concepts(cf, targets)
+    if dataset=='shapes3d':
+        W,B = train_LR_on_concepts_shapes3d(cf, targets)
+    else:
+        W,B = train_LR_on_concepts(cf, targets)
+    
     cf *= W
     cf += B
     #
     probs = torch.nn.functional.sigmoid(cf)   
-    preds = (probs > 0.5).long()
-    clip_ds = scripts.utils.ClipDataset(preds)
+    if dataset == 'shapes3d':
+        # Define chunk sizes (must sum to the tensor length)
+        concept_groups = [10, 10, 10, 8, 4]  # 10 for wall color, 10 background color, 10 object color, 8 sizes and 4 shapes
+
+        # Compute argmax for each chunk
+        argmax_indices = []
+        start = 0
+        for size in concept_groups:
+            chunk = probs[:,start:start + size]  # Extract the chunk
+            print(chunk.shape)
+            argmax_indices.append(torch.argmax(chunk,dim=1))  # Compute argmax and store it
+            print(argmax_indices)
+            start += size  # Move to the next chunk
+        preds = torch.zeros(targets.shape)
+        start = 0
+        
+        preds = []
+        for sample in range(len(targets)):
+            one_hot_concepts = []
+            # Construct the predicted concepts constrained on having only one active per concept group
+            for i, size in enumerate(concept_groups):
+                one_hot = torch.eye(size)
+                id = argmax_indices[i][sample]
+                #print(one_hot[id])
+                one_hot_concepts.append(one_hot[id])
+            one_hot_concepts = torch.cat(one_hot_concepts, dim=0)
+            preds.append(one_hot_concepts)
+            #print(one_hot_concepts)
+            #break
+        preds = torch.stack(preds, dim=0)
+            
+    
+    else:         
+        preds = (probs > 0.5)
+    clip_ds = scripts.utils.ClipDataset(preds.long())
     loader = torch.utils.data.DataLoader(clip_ds,batch_size=1,shuffle=False)
     original_ds = GenericDataset(ds_name=dataset, split = 'train')
     n_concepts = original_ds[0][1].shape[0]
@@ -216,6 +317,13 @@ def Clip():
 
 
 if __name__ == '__main__':
-    #GDino()
-    #LLava()
     Clip()
+    input("Press enter to continue...")
+    
+    GDino()
+    input("Press enter to continue...")
+    
+    LLava()
+    input("Press enter to continue...")
+    
+    

@@ -99,7 +99,25 @@ class CONCEPT_QUALITY():
     _output['concepts_probs'] = torch.nn.functional.sigmoid(_output['concepts_pred'])
     #self.metrics.update(l)
     num_labels = _output['labels_pred'].shape[1]
-    auto_leakage(self.output_train, self.output_val, _output, num_labels)
+    lkg = auto_leakage(self.args.dataset, self.output_train, self.output_val, _output, n_classes=num_labels)
+    self.leakage = lkg
+    
+    ############################################
+    ##                OIS                     ##
+    ############################################
+    from sklearn.ensemble import RandomForestClassifier
+    from metrics.ois import oracle_impurity_score
+    #print(self.output['concepts_pred'].shape)
+    ois = oracle_impurity_score(self.output['concepts_pred'][:1000,:].numpy(), self.output['concepts_gt'][:1000,:].numpy(), predictor_model_fn=RandomForestClassifier)
+    self.ois = ois
+    print(ois)
+    
+    ############################################
+    ##                END OIS                 ##
+    ############################################
+
+    b = {'ois': self.ois, 'leakage': self.leakage}
+    self.metrics.update(b)
 
     # Always compute auc roc on raw concept predictions, this is handled inside the function
     a = compute_AUCROC_concepts(_output, self.model.args)
