@@ -573,7 +573,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         #    continue
         #if i<=29:
         #    continue
-        if dataset == 'shapes3d':
+        if dataset.split("_")[0] == 'shapes3d':
             sorted_tensor, indices = torch.sort(torch.abs(corr_coeff), descending=False)
             subset = torch.tensor(range(0,concept_groups[concept_id]+1))
         else:
@@ -655,7 +655,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         #print(labels[0:2])
         #print(labels[200:202])
         #print(predictions[0:2])
-        print(classification_report(labels,predictions,output_dict=False))
+        #print(classification_report(labels,predictions,output_dict=False))
         #print(classification_report(labels,predictions, output_dict=False))
         #print("PRED")
         #input("...")
@@ -669,6 +669,8 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         ####### FOR GT concepts
         train_dataset = TensorDataset(output_train['concepts_gt'][:,subset], output_train['labels_gt'])
         val_dataset = TensorDataset(output_val['concepts_gt'][:,subset], output_val['labels_gt'])
+        #print(subset)
+        #print(output_test['concepts_gt'][0:10,subset])
         test_dataset = TensorDataset(output_test['concepts_gt'][:,subset], output_test['labels_gt'])
         train_loader = torch.utils.data.DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
         val_loader = torch.utils.data.DataLoader(val_dataset, shuffle=False, batch_size=batch_size)
@@ -698,7 +700,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
             #print(labl)
             #print("gt input:", inp)
             preds = leak.best_model(inp)
-            ckga = preds
+            asdg = inp
             #print("gt out:",preds)
             #probs = torch.nn.functional.sigmoid(leak.best_model(inp))
             #print(probs)
@@ -709,10 +711,9 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
             #print(preds)
             predictions.extend(preds)
             labels.extend(out.cpu().tolist())
-        print(ckga[0:10])
-        input("..")
+       
         entr = torch.mean(opy_gt).cpu()
-        print(classification_report(labels,predictions, output_dict=False))
+        #print(classification_report(labels,predictions, output_dict=False))
         #print("GT")
         #input("GT")
         accuracies_gt.append(classification_report(labels,predictions,output_dict=True)['macro avg']['f1-score'])
