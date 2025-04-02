@@ -185,10 +185,27 @@ oracle_test_run = {
     "-model": ["oracle"],
     "-dataset": [
                     "celeba",
-                    "shapes3d"
+                    #"shapes3d"
                 ],
     "-wandb":[""],
-    "-seed":["98"],
+    "-seed":["104","105","106","107","108"],
+}
+
+oracle_test_run_cub = {
+    # GRID SEARCH PARAMETERS
+    "-epochs": [20, 40, 60, 80, 100],
+    "-unfreeze":[0],
+    "-lr": [0.001],
+    "-balanced":[""],
+    "-dropout_prob":[0.01],
+    "-backbone": ["resnet18_cub"],
+    "-batch_size":[128],
+    "-predictor":['svm'],
+    # FIXED PARAMETERS
+    "-model": ["oracle"],
+    "-dataset": ["cub"],
+    "-wandb":[""],
+    "-seed":["104","105","106","107","108"],
 }
 
 oracle_run_cub = {
@@ -207,7 +224,7 @@ oracle_run_cub = {
     "-seed":["74"]#["74","75","76","77","78"],
 }
 
-runs = [oracle_test_run]
+runs = [oracle_test_run,oracle_test_run_cub]
 
 
 import os
