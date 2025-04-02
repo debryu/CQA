@@ -270,7 +270,7 @@ class LeakageLayer():
 class LeakageSVM():
     def __init__(self, in_features, out_features, n_classes, lr, step_size, lam, alpha, device, weights = None, svm=True, mask = None, logits = True, init = None, reduction='mean', C = 1):
         logger.debug(f"Initializing leakage model with in_features:{in_features}, out_features:{out_features}")
-        self.clf = LinearSVC(C = 1, class_weight='balanced')
+        self.clf = LinearSVC(C = C, class_weight='balanced')
         self.best_model = None
         self.best_model = None
         self.best_loss = 1000000
@@ -355,7 +355,6 @@ class LeakageSVM():
 def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, args, epochs = 20, batch_size=64, device='cuda', hidden_size=1000, n_layers=3):
     set_seed(args.eval_seed)
     #n_classes = output_test['labels_pred'].shape
-    
     n_concepts = output_test['concepts_gt'].shape[1]
     # The values are in {0,1}, we want logits so need to apply the log. However this would result in -inf, inf, so we just 
     # replace them with {-1000,1000}
@@ -576,7 +575,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         #    continue
         if dataset == 'shapes3d':
             sorted_tensor, indices = torch.sort(torch.abs(corr_coeff), descending=False)
-            subset = torch.tensor(range(0,concept_groups[concept_id]))
+            subset = torch.tensor(range(0,concept_groups[concept_id]+1))
         else:
             subset = indices[:start_index+1].cpu()
             #print(subset)
@@ -596,7 +595,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         
         weights = sklearn.utils.class_weight.compute_class_weight(class_weight='balanced', classes=np.unique(output_train['labels_gt']), y=output_train['labels_gt'].numpy())
         #leak = LeakageLayer(in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device, init=last_c_model_W)
-        leak = LeakageSVM(C = 10, in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device, init=last_c_model_W)
+        leak = LeakageSVM(C = 1, in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device, init=last_c_model_W)
         
         for e in range(lkg_epochs):
             train_loss = leak.train(test_loader)
@@ -613,11 +612,12 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         #last_c_w = torch.cat([last_c_w, torch.zeros(2).to(device).unsqueeze(dim=1)], dim=1)
         #last_c_model_W = last_c_w, last_c_b
 
-        predictions = []
-        labels = []
+        
         opy_pred = torch.tensor([]).to(device)
         tot = len(test_loader)
         train_split = tot*0.7
+        predictions = []
+        labels = []
         for batch_idx,batch in enumerate(test_loader):
             if batch_idx < train_split:
                 #print(f"TESTING: never seen {i}/{tot}")
@@ -655,7 +655,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         #print(labels[0:2])
         #print(labels[200:202])
         #print(predictions[0:2])
-        #print(classification_report(labels,predictions,output_dict=False))
+        print(classification_report(labels,predictions,output_dict=False))
         #print(classification_report(labels,predictions, output_dict=False))
         #print("PRED")
         #input("...")
@@ -675,7 +675,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         test_loader = torch.utils.data.DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
         weights = sklearn.utils.class_weight.compute_class_weight(class_weight='balanced', classes=np.unique(output_train['labels_gt']), y=output_train['labels_gt'].numpy())
         #leak = LeakageLayer(in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device)
-        leak = LeakageSVM(C=10, in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device)
+        leak = LeakageSVM(C=1, in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device)
         
         for e in range(lkg_epochs):
             train_loss = leak.train(test_loader)
@@ -686,6 +686,8 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         opy_gt = torch.tensor([]).to(device)
         tot = len(test_loader)
         train_split = tot*0.7
+        labels = []
+        predictions = []
         for batch_idx,batch in enumerate(test_loader):
             if batch_idx > train_split: # Shoould be <
                 #print(f"TESTING: never seen {i}/{tot}")
@@ -696,6 +698,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
             #print(labl)
             #print("gt input:", inp)
             preds = leak.best_model(inp)
+            ckga = preds
             #print("gt out:",preds)
             #probs = torch.nn.functional.sigmoid(leak.best_model(inp))
             #print(probs)
@@ -706,11 +709,12 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
             #print(preds)
             predictions.extend(preds)
             labels.extend(out.cpu().tolist())
-
+        print(ckga[0:10])
+        input("..")
         entr = torch.mean(opy_gt).cpu()
-        #print(classification_report(labels,predictions, output_dict=False))
+        print(classification_report(labels,predictions, output_dict=False))
         #print("GT")
-        #input("...")
+        #input("GT")
         accuracies_gt.append(classification_report(labels,predictions,output_dict=True)['macro avg']['f1-score'])
         #print(accuracies_gt[-1])
         losses.append(leak.best_loss)
