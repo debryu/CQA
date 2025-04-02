@@ -117,7 +117,7 @@ CHESTMNIST_GROUND_TRUTH = [
   "Hernia"
 ]
 
-with open("./data/concepts/cub/cub_preprocess.txt") as f:
+with open(CONCEPT_SETS['cub']) as f:
         cub_concepts = f.read().split("\n")
 
 GROUND_TRUTH_CONCEPTS = {

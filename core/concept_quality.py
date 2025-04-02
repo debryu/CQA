@@ -7,11 +7,14 @@ import json
 import copy
 #from utils.utils import compute_concept_frequencies
 from models import get_model
+from utils.utils import set_seed
 from loguru import logger
 from sklearn.metrics import classification_report as cr
 from metrics.common import get_conceptWise_metrics, compute_AUCROC_concepts
 from metrics.leakage import leakage_collapsing, auto_leakage
 from utils.eval_models import train_LR_on_concepts
+from sklearn.ensemble import RandomForestClassifier
+from metrics.ois import oracle_impurity_score
 from config import LABELS, METRICS, REQUIRES_SIGMOID
 from utils.args_utils import load_args
 import wandb
@@ -44,6 +47,8 @@ class CONCEPT_QUALITY():
     self.output_train = self.model.run('train')
     self.output_val = self.model.run('val')
     logger.debug(f"Output stored in CQA object.")
+    self.save()
+    
     return
 
   def save(self):
@@ -75,6 +80,39 @@ class CONCEPT_QUALITY():
     self.save()
     return self.classification_report
 
+  
+  def compute_leakage(self):
+    ############################################
+    ##                LEAKAGE                 ##
+    ############################################
+    num_labels = self.output_train['labels_pred'].shape[1]
+    # (dataset:str,output_train, output_val, output_test, n_classes, args, epochs = 20, batch_size=64, device='cuda', hidden_size=1000, n_layers=3):
+    lkg = auto_leakage(self.args.dataset, self.output_train, self.output_val, self.output, n_classes=num_labels, args=self.main_args)
+    self.leakage = lkg
+    self.metrics.update({'leakage': self.leakage})
+    return lkg
+    
+  def compute_ois(self):
+    ############################################
+    ##                OIS                     ##
+    ############################################
+    # Randomize subset, especially for very large dataset such as celeba
+    random_indexes = torch.range(0,len(self.output['concepts_pred'])-1)
+    #print(len(self.output['concepts_pred']))
+    #print(random_indexes[-1])
+    subset_size = 6000
+    # If the dataset is small, keep it 
+    if len(random_indexes) < subset_size:
+      subset = random_indexes
+    else: # Otherwise only take 5000 random samples
+        # Change this to the desired subset size
+      subset = random_indexes[torch.randperm(len(random_indexes))[:subset_size]]
+    subset = subset.long()
+    ois = oracle_impurity_score(self.output['concepts_pred'][subset,:].numpy(), self.output['concepts_gt'][subset,:].numpy(), predictor_model_fn=RandomForestClassifier)
+    self.ois = ois
+    self.metrics.update({  'ois': self.ois})
+    return ois
+  
   def concept_metrics(self, threshold = 0.5):
     if self.output['concepts_gt'].dim() == 1:
       if self.output['concepts_gt'][0] == -1:
@@ -98,30 +136,6 @@ class CONCEPT_QUALITY():
     _output['collapsed_concepts'] = (torch.nn.functional.sigmoid(_output['concepts_pred']) > threshold).float()
     _output['concepts_probs'] = torch.nn.functional.sigmoid(_output['concepts_pred'])
     #self.metrics.update(l)
-    num_labels = _output['labels_pred'].shape[1]
-
-    
-
-    lkg = auto_leakage(self.args.dataset, self.output_train, self.output_val, _output, n_classes=num_labels)
-    self.leakage = lkg
-    
-    ############################################
-    ##                OIS                     ##
-    ############################################
-    from sklearn.ensemble import RandomForestClassifier
-    from metrics.ois import oracle_impurity_score
-    #print(self.output['concepts_pred'].shape)
-    ois = oracle_impurity_score(self.output['concepts_pred'][:1000,:].numpy(), self.output['concepts_gt'][:1000,:].numpy(), predictor_model_fn=RandomForestClassifier)
-    self.ois = ois
-    print(ois)
-    
-    ############################################
-    ##                END OIS                 ##
-    ############################################
-
-    b = {'ois': self.ois, 'leakage': self.leakage}
-    self.metrics.update(b)
-
     # Always compute auc roc on raw concept predictions, this is handled inside the function
     a = compute_AUCROC_concepts(_output, self.model.args)
     self.metrics.update(a)
@@ -243,5 +257,25 @@ def initialize_CQA(folder_path, args, split = 'test'):
     # Run the model to get all the outputs
     CQA.store_output()
     CQA.save()
+    set_seed(main_args.eval_seed)
+  return CQA
+
+
+def open_CQA(folder_path):
+  logger.debug(f"Opening CQA from {folder_path}")
+  try:
+    with open(os.path.join(folder_path,'CQA.pkl'), 'rb') as f:
+      CQA = pickle.load(f)
+  except:
+    logger.warning(f"Failed to load pickle {os.path.join(folder_path,'CQA.pkl')}")
+    try:
+      import dill
+      print(os.listdir("./ordered_models/celeba"))
+      with open(os.path.join(folder_path,'CQA.pkl'), "wb") as dill_file:
+        dill.dump(CQA, dill_file)
+      CQA = dill.load(os.path.join(folder_path,'CQA.pkl'), 'rb')
+    except:
+      logger.error(f"Failed Miserably to load {folder_path}/CQA.pkl")
+      return None 
     
   return CQA

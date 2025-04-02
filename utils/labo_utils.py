@@ -26,8 +26,7 @@ class FinalLayer(torch.nn.Module):
         torch.nn.init.kaiming_normal_(init_weight)
         asso_mat = torch.nn.Parameter(init_weight.clone())
         return asso_mat
-
-
+    
     def forward(self, score):
             mat = self._get_weight_mat()
             sim = score @ mat.t()

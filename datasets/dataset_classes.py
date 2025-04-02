@@ -268,7 +268,7 @@ class CUBDataset(Dataset):
     Returns a compatible Torch Dataset object customized for the CUB dataset
     """
     name = 'cub'
-    def __init__(self, root, split, transform=None):
+    def __init__(self, root, split, transform=None, download=False):
         self.root = root
         
         self.pkl_urls = ['https://worksheets.codalab.org/rest/bundles/0x5b9d528d2101418b87212db92fea6683/contents/blob/class_attr_data_10/train.pkl', 
@@ -277,6 +277,7 @@ class CUBDataset(Dataset):
         self.cub_url = 'https://data.caltech.edu/records/65de6-vp158/files/CUB_200_2011.tgz?download=1'
         self.filename = 'CUB_200_2011.tgz'
         self.tgz_md5 = '97eceeb196236b17998738112f37df78'
+        self.download = download
         # Create folders
         os.makedirs(self.root,exist_ok=True)
         os.makedirs(os.path.join(self.root,'class_attr_data_10'), exist_ok=True)
@@ -307,11 +308,13 @@ class CUBDataset(Dataset):
         import tarfile
         # Download CUB images
         #print(os.path.join(self.root,'CUB_200_2011.tgz'))
+        #print(os.path.join(self.root,'CUB_200_2011.tgz'))
         if os.path.exists(os.path.join(self.root,'CUB_200_2011.tgz')):
             logger.debug('Files already downloaded and extracted.')
         else:
-            logger.info('Downloading CUB...')
-            download_url(self.cub_url, self.root, self.filename, self.tgz_md5)
+            if self.download:
+                logger.info('Downloading CUB...')
+                download_url(self.cub_url, self.root, self.filename, self.tgz_md5)
         if not os.path.exists(os.path.join(self.root,'CUB_200_2011/')):
             logger.info("Extracting CUB_200_2011.tgz")
             with tarfile.open(os.path.join(self.root, self.filename), "r:gz") as tar:

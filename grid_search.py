@@ -172,6 +172,25 @@ oracle_run = {
     "-seed":["74","75","76","77","78"],
 }
 
+oracle_test_run = {
+    # GRID SEARCH PARAMETERS
+    "-epochs": [20,
+                    ],
+    "-unfreeze":[5],
+    "-lr": [0.001],
+    "-balanced":[""],
+    "-dropout_prob":[0.01],
+    "-predictor":['svm'],
+    # FIXED PARAMETERS
+    "-model": ["oracle"],
+    "-dataset": [
+                    "celeba",
+                    "shapes3d"
+                ],
+    "-wandb":[""],
+    "-seed":["98"],
+}
+
 oracle_run_cub = {
     # GRID SEARCH PARAMETERS
     "-epochs": [20, 40, 60, 80, 100],
@@ -188,7 +207,7 @@ oracle_run_cub = {
     "-seed":["74"]#["74","75","76","77","78"],
 }
 
-runs = [oracle_run_cub]
+runs = [oracle_test_run]
 
 
 import os

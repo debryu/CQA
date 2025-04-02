@@ -39,7 +39,7 @@ with open("./data/cub/CUB_200_2011/classes.txt") as f:
 
 classes = [c.replace("_"," ") for c in classes]
 
-with open("./data/concepts/cub/cub_preprocess.txt") as f:
+with open("./data/concepts/cub/cub_improved_concepts.txt") as f:
     concepts = f.read().split("\n")
 
 # Reformat the classes
@@ -68,5 +68,5 @@ for i,clas in enumerate(new_classes):
 #print(key)
 #print(attributes_per_class[key])
 #print(samples)
-with open("./data/concepts/cub/cub_per_class.json","w") as f:
+with open("./data/concepts/cub/cub_improved_per_class.json","w") as f:
     json.dump(attributes_per_class, f, indent = 2)

@@ -12,6 +12,7 @@ from datasets import GenericDataset
 from utils.lfcbm_utils import get_target_model, save_activations, get_save_names
 from utils.args_utils import load_args
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+from config import ACTIVATIONS_PATH
 from PIL import Image
 try:
     from torchvision.transforms import InterpolationMode
@@ -100,7 +101,7 @@ class LABO(BaseModel):
                                device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
         test_target_save_name, test_clip_save_name, test_text_save_name = get_save_names(args.clip_name, args.backbone, 
-                                            args.feature_layer,ds_test, args.concept_set, "avg", args.activation_dir)
+                                            args.feature_layer,ds_test, args.concept_set, "avg", ACTIVATIONS_PATH['shared'])
         
         ds_test = f"{args.dataset}_train"
         save_activations(clip_name = args.clip_name, target_name = args.backbone, 
@@ -109,7 +110,7 @@ class LABO(BaseModel):
                                device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
         train_target_save_name, train_clip_save_name, train_text_save_name = get_save_names(args.clip_name, args.backbone, 
-                                            args.feature_layer,ds_test, args.concept_set, "avg", args.activation_dir)
+                                            args.feature_layer,ds_test, args.concept_set, "avg", ACTIVATIONS_PATH['shared'])
         
         ds_test = f"{args.dataset}_val"
         save_activations(clip_name = args.clip_name, target_name = args.backbone, 
@@ -118,7 +119,7 @@ class LABO(BaseModel):
                                device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
         val_target_save_name, val_clip_save_name, val_text_save_name = get_save_names(args.clip_name, args.backbone, 
-                                            args.feature_layer,ds_test, args.concept_set, "avg", args.activation_dir)
+                                            args.feature_layer,ds_test, args.concept_set, "avg", ACTIVATIONS_PATH['shared'])
 
         #load features
         with torch.no_grad():
@@ -207,6 +208,8 @@ class LABO(BaseModel):
           clip_features = self.val_clip_features
           self.model = _Model(clip_features=clip_features,**self._model_args)
       else:
+          # Use the ones initialized in __init__
+          # self.model and clip features are already initialized for test in init
           pass
       
       self.model.args.transform = str(self.get_transform(split=split))
@@ -229,7 +232,6 @@ class LABO(BaseModel):
             out_dict = self.model(features)
             logits = out_dict['preds'].float()
             c_repres = out_dict['concepts']
-            #print(c_repres)
             annotations.append(concepts_one_hot)
             concepts.append(c_repres)
             labels.append(targets)

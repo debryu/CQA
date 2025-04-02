@@ -1,6 +1,9 @@
 import os
 import importlib
 from loguru import logger
+##### Certificate Expired, try to override it
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 def _get_all_models():
     return [model.split(".")[0] for model in os.listdir("models") if model.endswith(".py") and model != "__init__.py" and model != "base.py" and model != "template.py"]
