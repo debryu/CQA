@@ -181,7 +181,7 @@ def train(args):
         W_g = output_proj['path'][0]['weight']
         b_g = output_proj['path'][0]['bias']
     elif args.predictor == 'svm':
-        predictor = LinearSVC(C = 1, class_weight='balanced')
+        predictor = LinearSVC(C = args.c_svm, class_weight='balanced')
         predictor.fit(train_activ_dict['concepts'], train_y)
         train_acc = predictor.score(train_activ_dict['concepts'], train_y)
         test_acc = predictor.score(test_activ_dict['concepts'], test_y)

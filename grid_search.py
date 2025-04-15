@@ -13,7 +13,7 @@ vlg_run = {
     "-cbl_epochs": [8,
                     ],
     "-cbl_confidence_threshold":[0.15],
-    "-cbl_lr": [0.01],
+    "-cbl_lr": [0.001],
     "-crop_to_concept_prob": [0.0],
     "-cbl_hidden_layers":[3],
     # FIXED PARAMETERS
@@ -35,13 +35,13 @@ vlg_run_cub = {
                     ],
     "-cbl_confidence_threshold":[0.15],
     "-val_split": [0.1],
-    "-cbl_lr": [0.01],
+    "-cbl_lr": [0.01,0.0005],
     "-crop_to_concept_prob": [0.0],
     "-cbl_hidden_layers":[0],
     "-cbl_batch_size": [32],
     "-cbl_epochs": [35],
     "-cbl_weight_decay": [1e-05],
-    "-cbl_lr": [0.0005],
+    #"-cbl_lr": [0.0005],
     "-cbl_pos_weight": [1.0],
     "-saga_batch_size": [512],
     "-saga_step_size": [0.1],
@@ -181,14 +181,15 @@ oracle_test_run = {
     "-balanced":[""],
     "-dropout_prob":[0.01],
     "-predictor":['svm'],
+    "-c_svm": [0.1,1,10],
     # FIXED PARAMETERS
     "-model": ["oracle"],
     "-dataset": [
-                    "celeba",
-                    #"shapes3d"
+                    #"celeba",
+                    "shapes3d"
                 ],
     "-wandb":[""],
-    "-seed":["104","105","106","107","108"],
+    "-seed":["106"],
 }
 
 oracle_test_run_cub = {
@@ -205,7 +206,7 @@ oracle_test_run_cub = {
     "-model": ["oracle"],
     "-dataset": ["cub"],
     "-wandb":[""],
-    "-seed":["104","105","106","107","108"],
+    "-seed":["94"],
 }
 
 oracle_run_cub = {
@@ -224,7 +225,7 @@ oracle_run_cub = {
     "-seed":["74"]#["74","75","76","77","78"],
 }
 
-runs = [oracle_test_run,oracle_test_run_cub]
+runs = [oracle_test_run]
 
 
 import os

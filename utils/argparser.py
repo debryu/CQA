@@ -110,6 +110,7 @@ def parse_resnetcbm_args(parser, args):
   parser.add_argument("-num_c", type=int, default=64, help="Number of concepts to learn when unsupervised")
   # Training
   parser.add_argument("-predictor", type=str, default="saga", help="Which linear predictor to use", choices=['saga', 'svm'])
+  parser.add_argument("-c_svm", type=float, default=1, help="C hyperparameter for SVM")
   parser.add_argument("-optimizer", type=str, default="adamw", help="Which optimizer to use", choices=['adam', 'adamw', 'sgd'])
   parser.add_argument("-lr", type=float, default=0.001, help="Learning rate")
   parser.add_argument('-n_epochs','-epochs', type=int, default=50, help="Number of epochs to train the model.")
@@ -118,7 +119,7 @@ def parse_resnetcbm_args(parser, args):
   parser.add_argument("-optimizer_kwargs", type=dict, default={}, help="Optimizer kwargs")
   parser.add_argument("-balanced", action="store_true", help="Add cross entropy loss balancing for imbalanced datasets")
   parser.add_argument("-balancing_weight", type=float, default=0.4, help="Weight for balancing the loss")
-  parser.add_argument("-patience", type=int, default=5, help="Patience for early stopping")
+  parser.add_argument("-patience", type=int, default=16, help="Patience for early stopping")
   parser.add_argument("-dropout_prob", type=float, default=0.01, help="Dropout probability")
   parser.add_argument("-val_interval", type=int, default=1, help="Validation interval, every n epochs do validation")
   parse_glm_args(parser, args)

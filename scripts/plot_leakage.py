@@ -90,6 +90,16 @@ def plot_delta(deltas):
 
 leakage_deltas = {'resnetcbm':[],'oracle':[],'labo':[],'lfcbm':[],'vlgcbm':[]}
 
+
+# Optional set up all the folders to check 
+subfolders = ["./ordered_models/shapes3d/labo",
+              "./ordered_models/shapes3d/lfcbm",
+              "./ordered_models/shapes3d/resnetcbm",
+              "./ordered_models/shapes3d/vlgcbm",
+              "./ordered_models/tentative/shapes3d",
+              ]
+folder = ""
+
 for f in subfolders:
     models = os.listdir(os.path.join(folder,f))
     for m in models:
@@ -100,7 +110,7 @@ for f in subfolders:
             with open(os.path.join(folder,f,m,"leakage.data"), "rb") as file:
                 leakage = pickle.load(file)            
             delta = leakage['delta']
-            print(delta)
+            #print(delta)
             leakage_deltas[model].append(delta)
         except:
             logger.warning(f"Missing {os.path.join(folder,f,m)}")
