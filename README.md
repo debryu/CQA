@@ -8,7 +8,8 @@
 	  <img src="prev.jpg" alt="preview" width="700" height="300">
   </div>
 
-  
+ <br>
+ <br>
  <a href="https://arxiv.org/abs/2504.19774v2">
     <img src="https://img.shields.io/badge/%F0%9F%93%84-Paper-blue?style=flat" alt="Paper Badge">
   </a>
