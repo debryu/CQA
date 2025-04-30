@@ -8,15 +8,10 @@
 	  <img src="prev.jpg" alt="preview" width="700" height="300">
   </div>
 
+ <div align="center">
  <br>
- <br>
-  <a href="https://arxiv.org/abs/2504.19774v2">
-    <img src="https://img.shields.io/badge/%F0%9F%93%84-Paper-blue?style=flat" alt="Paper Badge">
-  </a>
-  <a href="mailto:emanuele.marconato@unitn.it">
-    <img src="https://img.shields.io/badge/%F0%9F%93%AA-Get in touch-green?style=flat" alt="Mail to">
-  </a>
-</div>
+ <br> 
+  <a href="https://arxiv.org/abs/2504.19774v2"><img src="https://img.shields.io/badge/%F0%9F%93%84-Paper-blue?style=flat" alt="Paper Badge"></a>&nbsp;&nbsp;<a href="mailto:emanuele.marconato@unitn.it"><img src="https://img.shields.io/badge/%F0%9F%93%AA-Get in touch-green?style=flat" alt="Mail to"></a></div>
 
 # Getting Started
 ## Installation
