@@ -9,6 +9,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve, auc
 from tqdm import tqdm
 from matplotlib import pyplot as plt
+import numpy as np
+import torch
+
 '''
 Current output:
 out_dict = {
@@ -38,48 +41,44 @@ def auc_roc(X,y, model_args, concept_name=None):
   # Compute PR AUC
   pr_auc = auc(recall, precision)
   logger.info(f"PR AUC: {pr_auc}")
-  plt.show()
-  
+  #plt.show()
   return pr_auc
 
 def compute_AUCROC_concepts(output,args):
-    if 'pre-sigmoid_concepts' in output.keys():
-      conc_pred = output['pre-sigmoid_concepts']
-    else:
-      conc_pred = output['concepts_pred']
+    logger.debug("Computing AUC-ROC")
+    conc_pred = output['concepts_pred']
     conc_gt = output['concepts_gt']
 
     if not hasattr(args, 'num_c'):
       args.num_c = conc_pred.shape[1]
     
-    concepts_auc = []
+    auc_rocs = []
     for i in tqdm(range(args.num_c), desc="Computing AUC-ROC"):
       logger.info(f"Computing AUC-ROC for concept {i}")
       X = conc_pred[:,i].detach().cpu().numpy().reshape(-1,1)
       y = conc_gt[:,i].detach().cpu().numpy()
-      concept_name = get_concept_names(CONCEPT_SETS[args.dataset.split("_")[0]])[i]
-      cauc = auc_roc(X,y, args, concept_name=concept_name)
-      concepts_auc.append(cauc)
-    return concepts_auc
+      auc_rocs.append(auc_roc(X,y, args))
     
+    auc_dict = {'avg_concept_auc':np.mean(auc_rocs), 'concept_auc': auc_rocs}
+    return auc_dict
 
-def get_conceptWise_metrics(output, model_args, main_args, threshold=0.0):
+def get_conceptWise_metrics(output, model_args, main_args, threshold, name = '', dict_str='concepts_pred'):
     if main_args.wandb:
         import wandb
     ds = model_args.dataset.split("_")[0]
-    concept_preds = output['concepts_pred']
+    concept_preds = output[dict_str]
     concept_gt = output['concepts_gt']
     # Should be already on cpu but just in case
     concept_pred = concept_preds.cpu()
     concept_gt = concept_gt.cpu()
 
     # Setting concepts to 1 if the value is above the threshold, 0 otherwise
-    concept_pred = (concept_pred > threshold).float()
+    concept_pred = (torch.nn.functional.sigmoid(concept_pred) > threshold).float()
     logger.debug(f"Number of concetps: {concept_preds.shape[1]}")
     
      #print(concept_pred.T.shape)
     #print(concept_gt.T.shape)
-
+    print(concept_pred.shape)
     accuracy = (concept_pred == concept_gt).sum(dim=0) / concept_gt.shape[0]
     #print(accuracy)
     concept_names = get_concept_names(CONCEPT_SETS[ds])
@@ -104,11 +103,11 @@ def get_conceptWise_metrics(output, model_args, main_args, threshold=0.0):
         #    print("logging",{f"concept_accuracy":cr['accuracy'], "manual_step":i})
         #   wandb.log({f"concept_accuracy":cr['accuracy'], "manual_step":i})
    
-    return {'avg_concept_accuracy': sum(concept_accuracies)/len(concept_accuracies), 
-            'concept_accuracy':concept_accuracies, 
-            'concept_classification_reports':classification_reports,
-            'avg_concept_f1': sum(concept_f1)/len(concept_f1),
-            'concept_f1':concept_f1}
+    return {f'{name}avg_concept_accuracy': sum(concept_accuracies)/len(concept_accuracies), 
+            f'{name}concept_accuracy':concept_accuracies, 
+            f'{name}concept_classification_reports':classification_reports,
+            f'{name}avg_concept_f1': sum(concept_f1)/len(concept_f1),
+            f'{name}concept_f1':concept_f1}
 
 def get_metrics(output, requested:list[str]):
   metrics = []

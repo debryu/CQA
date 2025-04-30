@@ -118,3 +118,5 @@ def download_image(url, file_path):
     except Exception as e:
         logger.warning(f"Failed to download {url}: {e}")
         return False
+
+

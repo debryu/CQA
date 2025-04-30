@@ -8,13 +8,18 @@ import copy
 import numpy as np
 #from utils.utils import compute_concept_frequencies
 from models import get_model
+from utils.utils import set_seed
 from loguru import logger
 from sklearn.metrics import classification_report as cr
 from metrics.common import get_conceptWise_metrics, compute_AUCROC_concepts
+from metrics.leakage import leakage_collapsing, auto_leakage
 from utils.eval_models import train_LR_on_concepts
+from sklearn.ensemble import RandomForestClassifier
+from metrics.ois import oracle_impurity_score
 from config import LABELS, METRICS, REQUIRES_SIGMOID
 from utils.args_utils import load_args
 import wandb
+import traceback
 
 # TODO: Fix TEMP and add the correct target names
 # TODO: Count Imbalances for each ds once
@@ -37,15 +42,28 @@ class CONCEPT_QUALITY():
         self.label_freq = json.load(open(os.path.join(self.model.args.load_dir,"train_label_freq.txt")))
     self.metrics = {}
 
-  def store_output(self, split = 'test'):
-    logger.debug(f"Storing output for {split} split.")
-    self.output = self.model.run(split)
+  def store_output(self):
+    logger.debug(f"Storing output for all splits.")
+    self.output = self.model.run('test')
+    self.output_train = self.model.run('train')
+    self.output_val = self.model.run('val')
     logger.debug(f"Output stored in CQA object.")
+    self.save()
+    
     return
 
   def save(self):
-    pickle.dump(self, open(self.CQA_save_path, "wb"))
-    print(self.args)
+    
+    try:
+      pickle.dump(self, open(self.CQA_save_path, "wb"))
+    except:
+      import dill
+      dill_file = open(self.CQA_save_path, "wb")
+      dill_file.write(dill.dumps(self))
+      dill_file.close()
+      logger.warning("Maybe you moved the model in another folder. Try updating the path in the args and force another analysis.")
+      logger.warning("If the error is AttributeError: Can't get local object 'Backbone.__init__.<locals>.hook' then just ignore it!")
+      logger.error(traceback.format_exc())
     logger.info(f"Saved to {self.CQA_save_path}")
     return
 
@@ -63,6 +81,39 @@ class CONCEPT_QUALITY():
     self.save()
     return self.classification_report
 
+  
+  def compute_leakage(self):
+    ############################################
+    ##                LEAKAGE                 ##
+    ############################################
+    num_labels = self.output_train['labels_pred'].shape[1]
+    # (dataset:str,output_train, output_val, output_test, n_classes, args, epochs = 20, batch_size=64, device='cuda', hidden_size=1000, n_layers=3):
+    lkg = auto_leakage(self.args.dataset, self.output_train, self.output_val, self.output, n_classes=num_labels, args=self.main_args)
+    self.leakage = lkg
+    self.metrics.update({'leakage': self.leakage})
+    return lkg
+    
+  def compute_ois(self):
+    ############################################
+    ##                OIS                     ##
+    ############################################
+    # Randomize subset, especially for very large dataset such as celeba
+    random_indexes = torch.range(0,len(self.output['concepts_pred'])-1)
+    #print(len(self.output['concepts_pred']))
+    #print(random_indexes[-1])
+    subset_size = 6000
+    # If the dataset is small, keep it 
+    if len(random_indexes) < subset_size:
+      subset = random_indexes
+    else: # Otherwise only take 5000 random samples
+        # Change this to the desired subset size
+      subset = random_indexes[torch.randperm(len(random_indexes))[:subset_size]]
+    subset = subset.long()
+    ois = oracle_impurity_score(self.output['concepts_pred'][subset,:].numpy(), self.output['concepts_gt'][subset,:].numpy(), predictor_model_fn=RandomForestClassifier)
+    self.ois = ois
+    self.metrics.update({  'ois': self.ois})
+    return ois
+  
   def concept_metrics(self, threshold = 0.5):
     if self.output['concepts_gt'].dim() == 1:
       if self.output['concepts_gt'][0] == -1:
@@ -75,14 +126,22 @@ class CONCEPT_QUALITY():
     _output = copy.deepcopy(self.output)
     if self.args.model in REQUIRES_SIGMOID:
       logger.info("Training Logistic Regression on Concepts")
-      W,B = train_LR_on_concepts(_output['concepts_pred'],_output['concepts_gt'])
+      W,B = train_LR_on_concepts(self.output_train['concepts_pred'],self.output_train['concepts_gt'])
       _output['concepts_pred'] *= W
       _output['concepts_pred'] += B
-    m = get_conceptWise_metrics(_output, self.model.args, self.main_args, threshold=threshold)
 
-    c_aucs = compute_AUCROC_concepts(_output, self.model.args)
-    self.metrcs.update({'concept_auc':c_aucs, 'avg_concept_auc':np.mean(c_aucs)})
+    m = get_conceptWise_metrics(_output, self.model.args, self.main_args, threshold=threshold)
     self.metrics.update(m)
+
+    # Collapse the concepts, the domain goes from R to {0,1}. This to remove information leakage.
+    _output['collapsed_concepts'] = (torch.nn.functional.sigmoid(_output['concepts_pred']) > threshold).float()
+    _output['concepts_probs'] = torch.nn.functional.sigmoid(_output['concepts_pred'])
+    #self.metrics.update(l)
+    # Always compute auc roc on raw concept predictions, this is handled inside the function
+    a = compute_AUCROC_concepts(_output, self.model.args)
+    self.metrics.update(a)
+    
+
     self.save()
     return m
   
@@ -116,6 +175,17 @@ class CONCEPT_QUALITY():
     #save_IM_as_img(path, file_name, plot_title, self.dci['importance_matrix'])
     return 
   
+  def dump_metrics(self):
+    serializable_dict = {}
+    for key,value in self.metrics.items():
+      try:
+        serializable_dict[key] = float(value)
+      except:
+        pass
+    with open(os.path.join(self.model.args.load_dir, "metrics.txt"), "w") as f:
+      json.dump(serializable_dict, f, indent=2)
+
+
   def log_metrics(self): 
     logging_metrics = {}
     log_c_accuracies = False
@@ -153,10 +223,16 @@ def initialize_CQA(folder_path, args, split = 'test'):
   logger.debug(f"Initializing CQA from {folder_path}")
   main_args = copy.deepcopy(args)
   # Check if CQA (Concept Quality Analysis) is already present
-  if os.path.exists(folder_path + '/CQA.pkl') and not force_from_scratch:
+  if os.path.exists(os.path.join(folder_path,'CQA.pkl')) and not force_from_scratch:
     logger.info("CQA found. Loading CQA.")
-    with open(folder_path + '/CQA.pkl', 'rb') as f:
-      CQA = pickle.load(f)
+    try:
+      with open(os.path.join(folder_path,'CQA.pkl'), 'rb') as f:
+        CQA = pickle.load(f)
+    except:
+      import dill
+      with open(os.path.join(folder_path,'CQA.pkl'), "wb") as dill_file:
+        dill.dump(CQA, dill_file)
+      #CQA = dill.load(os.path.join(folder_path,'CQA.pkl'), 'rb')
     CQA.main_args = main_args
     CQA.args = load_args(args)
     CQA.save()
@@ -180,7 +256,27 @@ def initialize_CQA(folder_path, args, split = 'test'):
     CQA.main_args = main_args
     logger.info(f"Running the model on {model.args.dataset} {split}...")
     # Run the model to get all the outputs
-    CQA.store_output(split)
+    CQA.store_output()
     CQA.save()
+    set_seed(main_args.eval_seed)
+  return CQA
+
+
+def open_CQA(folder_path):
+  logger.debug(f"Opening CQA from {folder_path}")
+  try:
+    with open(os.path.join(folder_path,'CQA.pkl'), 'rb') as f:
+      CQA = pickle.load(f)
+  except:
+    logger.warning(f"Failed to load pickle {os.path.join(folder_path,'CQA.pkl')}")
+    try:
+      import dill
+      print(os.listdir("./ordered_models/celeba"))
+      with open(os.path.join(folder_path,'CQA.pkl'), "wb") as dill_file:
+        dill.dump(CQA, dill_file)
+      CQA = dill.load(os.path.join(folder_path,'CQA.pkl'), 'rb')
+    except:
+      logger.error(f"Failed Miserably to load {folder_path}/CQA.pkl")
+      return None 
     
   return CQA

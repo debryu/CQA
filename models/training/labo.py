@@ -1,12 +1,17 @@
 import os
+
+import torch.functional
+import torch.nn.functional as F
+import torch.optim
 from loguru import logger
 import torch
 import random
 from torch.utils.data import DataLoader, TensorDataset
 from models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
 from tqdm import tqdm
-
+import copy
 from utils.lfcbm_utils import cos_similarity_cubed_single, save_activations, get_save_names, get_targets_only
+from datasets import GenericDataset
 from datasets import get_dataset
 from config import folder_naming_convention, ACTIVATIONS_PATH, LABELS
 
@@ -31,6 +36,7 @@ def train(args):
     with open(args.concept_set) as f:
         concepts = f.read().split("\n")
 
+    device = args.device
     concepts_dict = {'raw_concepts': concepts, 'raw_dim': len(concepts)}
     classes = LABELS[args.dataset.split("_")[0]]
     logger.debug(f"Classes: {classes}")
@@ -71,7 +77,7 @@ def train(args):
 
         test_image_features = torch.load(test_clip_save_name, map_location="cpu", weights_only=True).float()
         test_image_features /= torch.norm(test_image_features, dim=1, keepdim=True)
-
+    
         text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()
         text_features /= torch.norm(text_features, dim=1, keepdim=True)
         
@@ -80,11 +86,113 @@ def train(args):
         test_clip_features = test_image_features @ text_features.T
 
         del image_features, text_features, val_image_features
-    
+
     train_targets = get_targets_only(args.dataset, "train")
     val_targets = get_targets_only(args.dataset, "val")
     test_targets = get_targets_only(args.dataset, "test")
-
+    
+    from utils.labo_utils import FinalLayer
+    import numpy as np
+    
+    train_ds_labo = TensorDataset(clip_features, torch.tensor(train_targets))
+    val_ds_labo = TensorDataset(val_clip_features, torch.tensor(val_targets))
+    test_ds_labo = TensorDataset(test_clip_features, torch.tensor(test_targets))
+    print(test_clip_features[0])
+    train_loader_labo = DataLoader(train_ds_labo, 64, shuffle=True)
+    val_loader_labo = DataLoader(val_ds_labo, 64, shuffle=False)
+    from utils.utils import set_seed
+    set_seed(42)
+    test_loader_labo = DataLoader(test_ds_labo, 64, shuffle=True)
+    final_layer = FinalLayer(clip_features.shape[1],len(classes)).to(device)
+    optim = torch.optim.Adam(final_layer.parameters(), lr=args.lr)
+    best_loss = 100000
+    patience = 0
+    for e in range(10000):
+        t_losses = []
+        for batch in train_loader_labo: #train_loader_labo
+            clip, labl = batch
+            clip = clip.to(device)
+            sim = final_layer(clip*100).to(device)
+            loss = torch.nn.functional.cross_entropy(sim, labl.to(device))
+            optim.zero_grad()
+            loss.backward()
+            optim.step()
+            t_losses.append(loss.item())
+        v_losses = []
+        for batch in val_loader_labo:
+            clip, labl = batch
+            clip = clip.to(device)
+            sim = final_layer(clip*100).to(device)
+            loss = torch.nn.functional.cross_entropy(sim, labl.to(device))
+            v_losses.append(loss.item())
+        logger.info(f"Train loss: {np.mean(t_losses)} Val loss: {np.mean(v_losses)}. Patience: {patience}")
+        patience += 1
+        if np.mean(v_losses) < best_loss:
+            best_loss = np.mean(v_losses)
+            W_g = final_layer.asso_mat
+            patience = 0
+        if patience > 600:
+            break
+    b_g = torch.zeros(len(classes))
+    predictions = []
+    labels = []
+    for batch in test_loader_labo:
+        clip, labl = batch
+        clip = clip.to(device)
+        #print(clip.shape)
+        #print(labl)
+        preds = final_layer(clip*100)
+        #print(preds)
+        #print(preds.shape)
+        preds = torch.argmax(preds.cpu(), dim=1)
+        #print(preds)
+        #print(preds)
+        predictions.extend(preds)
+        labels.extend(labl.cpu().tolist())
+    #input("...")
+    
+    from sklearn.metrics import classification_report
+    print(classification_report(labels,predictions))
+    #input("...")
+    from metrics.leakage import LeakageSVM
+    #leak = LeakageSVM(in_features=len(subset),out_features=n_concepts, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device, init=last_c_model_W)
+        
+    predictor = LeakageSVM(in_features=concepts_dict['raw_dim'], out_features=len(classes), lr=0.0001, step_size=80, lam=0.8, alpha=0.99, n_classes=len(classes), device='cpu')
+    #test_clip_features
+    test_ds_labo = TensorDataset(clip_features*100, torch.tensor(train_targets))
+    test_ldr = DataLoader(test_ds_labo, 64, shuffle=True)
+    test_ds_labo = TensorDataset(test_clip_features*100, torch.tensor(test_targets))
+    test_ldr = DataLoader(test_ds_labo, 64, shuffle=True)
+    predictor.train(test_ldr, train_test_split=0.7)
+    i_test = 0
+    predictions = []
+    labels = []
+    for batch in test_loader_labo:
+        if i_test < len(test_loader_labo)*0.7:
+            i_test+=1
+            continue
+        i_test +=1
+        
+        clip, labl = batch
+        print(clip.shape)
+        #print(clip.shape)
+        #print(labl)
+        #print(clip[0,104]*100)
+        #print(clip[0,11]*100)
+        preds = predictor.best_model(clip*100)
+        #print(preds)
+        #asd
+        #print(preds)
+        #print(preds.shape)
+        preds = torch.argmax(preds, dim=1)
+        #print(preds)
+        #print(preds)
+        predictions.extend(preds)
+        labels.extend(labl.cpu().tolist())
+    print(classification_report(labels,predictions))
+    
+    '''
+    #
     with torch.no_grad():
         train_y = torch.LongTensor(train_targets)
         indexed_train_ds = IndexedTensorDataset(clip_features, train_y)
@@ -115,16 +223,106 @@ def train(args):
     # Solve the GLM path
     output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
                       val_loader=val_loader, test_loader=test_loader, do_zero=False, metadata=metadata, n_ex=len(target_features), n_classes = len(classes))
-    W_g = output_proj['path'][0]['weight']
-    b_g = output_proj['path'][0]['bias']
+    #
+    
+    print(clip_features.shape)
+    print(val_clip_features.shape)
+    print(test_clip_features.shape)
+    #DEBUGGING
+    train_y = torch.LongTensor(train_targets)
+    train_ds = TensorDataset(clip_features, train_y)
+    val_y = torch.LongTensor(val_targets)
+    val_ds = TensorDataset(val_clip_features,val_y)
+    test_y = torch.LongTensor(test_targets)
+    test_ds = TensorDataset(test_clip_features,test_y)
+    train_loader = DataLoader(train_ds, batch_size=64, shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=64, shuffle=True)
+    test_loader = DataLoader(test_ds, batch_size=64, shuffle=True)
+    
+    #linear = torch.nn.Sequential(
+    #    torch.nn.Linear(clip_features.shape[1],1000),
+    #    torch.nn.ReLU(),
+    #    torch.nn.Linear(1000,1000),
+    #   torch.nn.ReLU(),
+    #    torch.nn.Linear(1000,1000),
+    #    torch.nn.ReLU(),
+    #    torch.nn.Linear(1000,len(classes))
+    #).to(args.device)
+    from datasets import GenericDataset
+    bWe = GenericDataset(args.dataset, split='train').label_occurrencies
+    print(bWe)
+    TbWe = torch.zeros(2).to(args.device)
+    TbWe[0] = 48000/bWe['0']
+    TbWe[1] = 48000/bWe['1']
+    print(TbWe)
+    #bWe = torch.ones(2).to(args.device)
+    #bWe[1]=3
+    loss_fn = torch.nn.CrossEntropyLoss(reduction='mean', weight=TbWe)
+    from sklearn.svm import LinearSVC
+    # Train LinearSVC model
+    clf = LinearSVC(C = 1)
+    import numpy as np
+    all_x = []
+    all_labels = []
+    for batch in train_loader:
+        x,y = batch
+        x = x.to('cuda')
+        y = y.to('cuda')
+        # Store predictions and labels
+        all_x.extend(x.cpu().numpy())  # Move to CPU & convert to NumPy
+        all_labels.extend(y.cpu().numpy())  # Move to CPU & convert to NumPy
+    clf.fit(all_x, all_labels)
+
+    weights = torch.tensor(clf.coef_)
+    bias = torch.tensor(clf.intercept_)
+    print(weights)
+    W_g = torch.cat([-weights/2,weights/2])
+    print(W_g)
+    b_g = torch.cat([-bias/2, bias/2])
+    print(torch.topk(weights, k=3, largest=True))
+    print(torch.topk(weights, k=3, largest=False))
+
+    n_concepts_final_layer = clip_features.shape[1]
+    logger.debug(f"N. of concepts in the final bottleneck: {n_concepts_final_layer}")
+    # add n_concepts to the args
+    setattr(args, 'n_concepts_final_layer', n_concepts_final_layer)
+    linear = torch.nn.Linear(clip_features.shape[1],len(classes)).to(args.device)
+    #linear.load_state_dict({"weight":W_g, "bias":b_g})
     
 
+    from sklearn.metrics import classification_report
+    # Initialize lists to store predictions and ground truth labels
+    all_preds = []
+    all_nn_preds = []
+    all_labels = []
+    losses = []
+    for batch in test_loader:
+        x,y = batch 
+        #print(clf.predict(x.cpu().numpy())[0:2])
+        pred_y = linear(x.to(args.device))
+        #print(torch.argmax(pred_y[0:2], dim=1)[0:2])
+        nn_pred_y = torch.argmax(pred_y, dim=1)
+        #print(nn_pred_y)
+        #loss = loss_fn(pred_y,y.to(args.device))
+        #losses.append(loss.item())
+        # Make predictions
+        all_nn_preds.extend(nn_pred_y.cpu().numpy())
+        all_preds.extend(clf.predict(x.cpu().numpy()))
+        all_labels.extend(y.cpu().numpy())  # Move to CPU & convert to NumPy
+    print(np.mean(losses))
+    # Compute classification report
+    report = classification_report(all_labels, all_preds, digits=4)
+    print(report)
+    #report = classification_report(all_labels, all_nn_preds, digits=4, output_dict=True)
+    #print(report)
+    '''
     # Save resulting concepts
     with open(os.path.join(save_name, "concepts.txt"), 'w') as f:
         f.write(concepts[0])
         for concept in concepts[1:]:
             f.write('\n'+concept)
     
+    print(W_g)
     torch.save(W_g, os.path.join(save_name, "W_g.pt"))
     torch.save(b_g, os.path.join(save_name, "b_g.pt"))
 

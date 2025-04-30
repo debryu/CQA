@@ -14,6 +14,7 @@ from datasets.utils import compute_imbalance
 from utils.resnetcbm_utils import get_activations_and_targets
 from utils.args_utils import save_args
 from models.resnetcbm import RESNETCBM
+from sklearn.svm import LinearSVC
 
 def train(args):
     # Get only the number of concepts, take the smallest ds
@@ -29,8 +30,9 @@ def train(args):
 
     model_class = RESNETCBM(args)
     train_model = model_class.model
-    train_model.train()
-    train_model.backbone.train()
+    logger.info(f"Model: {train_model}")
+    for name, param in train_model.named_parameters():
+        logger.debug(f"{name}: requires_grad={param.requires_grad}")
     #trained_model = PretrainedResNetModel(args)
     transform = model_class.get_transform(split = 'train')
     args.transform = str(transform)
@@ -54,6 +56,8 @@ def train(args):
     #fr = compute_imbalance(data)
     balancing_weight = args.balancing_weight
     if args.balanced:
+        logger.debug("Balancing enabled, retrieving weights...")
+        print(data.dataset)
         pos_weights = data.get_pos_weights()
         #loss_s.append(torch.nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor(pos_weights).cuda()))
         loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor(pos_weights).cuda())
@@ -168,12 +172,32 @@ def train(args):
     metadata['max_reg'] = {}
     metadata['max_reg']['nongrouped'] = args.lam
 
-    # Solve the GLM path
-    output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
-                    val_loader=val_loader, test_loader=test_loader, do_zero=False, metadata=metadata, n_ex=train_activ_dict['n_examples'], n_classes = len(classes))
-    W_g = output_proj['path'][0]['weight']
-    b_g = output_proj['path'][0]['bias']
-            
+    if args.predictor == 'saga':
+        # Solve the GLM path
+        output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
+                        val_loader=val_loader, test_loader=test_loader, do_zero=False, metadata=metadata, n_ex=train_activ_dict['n_examples'], n_classes = len(classes))
+                        #balancing_loss_weight = data.label_weights)
+        
+        W_g = output_proj['path'][0]['weight']
+        b_g = output_proj['path'][0]['bias']
+    elif args.predictor == 'svm':
+        predictor = LinearSVC(C = args.c_svm, class_weight='balanced')
+        predictor.fit(train_activ_dict['concepts'], train_y)
+        train_acc = predictor.score(train_activ_dict['concepts'], train_y)
+        test_acc = predictor.score(test_activ_dict['concepts'], test_y)
+        logger.debug(f'Predictor accuracy train: {train_acc}, Test:{test_acc}')
+        weights = torch.tensor(predictor.coef_)
+        bias = torch.tensor(predictor.intercept_)
+        _out,_in= weights.shape
+        if _out == 1:
+            _out = 2
+            w_negative = -weights
+            b_negative = -bias
+            weights = torch.cat((w_negative,weights), dim=0)
+            bias = torch.cat((b_negative,bias), dim=0)   
+        W_g = weights
+        b_g = bias 
+        
     torch.save(W_g, os.path.join(args.save_dir, "W_g.pt"))
     torch.save(b_g, os.path.join(args.save_dir, "b_g.pt"))
     return args
@@ -218,11 +242,33 @@ def train_last_layer(args):
     metadata['max_reg'] = {}
     metadata['max_reg']['nongrouped'] = args.lam
 
-    # Solve the GLM path
-    output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
-                    val_loader=val_loader, test_loader=test_loader, do_zero=False, metadata=metadata, n_ex=train_activ_dict['n_examples'], n_classes = len(classes))
-    W_g = output_proj['path'][0]['weight']
-    b_g = output_proj['path'][0]['bias']
+    if args.predictor == 'svm':
+        predictor = LinearSVC(C = 1, class_weight='balanced')
+        predictor.fit(train_activ_dict['concepts'], train_y)
+        train_acc = predictor.score(train_activ_dict['concepts'], train_y)
+        test_acc = predictor.score(test_activ_dict['concepts'], test_y)
+        logger.debug(f"Final layer accuracy train:{train_acc} and test: {test_acc}")
+        weights = torch.tensor(predictor.coef_)
+        bias = torch.tensor(predictor.intercept_)
+        _out,_in= weights.shape
+        if _out == 1:
+            _out = 2
+            w_negative = -weights
+            b_negative = -bias
+            weights = torch.cat((w_negative,weights), dim=0)
+            bias = torch.cat((b_negative,bias), dim=0)
+        W_g,b_g = weights,bias
+        
+    elif args.predictor == 'saga':
+        # Solve the GLM path
+        output_proj = glm_saga(linear, indexed_train_loader, args.glm_step_size, args.n_iters, args.glm_alpha, epsilon=1, k=1,
+                        val_loader=val_loader, test_loader=test_loader, do_zero=False, metadata=metadata, n_ex=train_activ_dict['n_examples'], n_classes = len(classes))
+        
+
+        W_g = output_proj['path'][0]['weight']
+        b_g = output_proj['path'][0]['bias']
+    else:
+        raise NotImplementedError()
             
     torch.save(W_g, os.path.join(args.save_dir, "W_g.pt"))
     torch.save(b_g, os.path.join(args.save_dir, "b_g.pt"))

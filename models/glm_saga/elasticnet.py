@@ -12,7 +12,6 @@ from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import StepLR
 from torch.autograd import grad
 from torch.utils.data import random_split
-
 # Toy example
 import numpy as np
 import time
@@ -257,7 +256,7 @@ def train_spg(linear, loader, max_lr, nepochs, lam, alpha, preprocess=None, min_
 # initial pass over the loaders
 def train_saga(linear, loader, lr, nepochs, lam, alpha, group=True, verbose=None, 
                 state=None, table_device=None, n_ex=None, n_classes=None, tol=1e-6, 
-                preprocess=None, lookbehind=None, family='multinomial', logger=None): 
+                preprocess=None, lookbehind=None, family='multinomial', logger=None, balancing_loss_weight=None): 
     if logger is None: 
         logger = print
     with ch.no_grad(): 
@@ -317,7 +316,9 @@ def train_saga(linear, loader, lr, nepochs, lam, alpha, group=True, verbose=None
                     else: 
                         loss = F.cross_entropy(out,y.to(weight.device), reduction='none')
                         loss = (loss*w).mean()
-                    
+                    if balancing_loss_weight is not None:
+                        loss = F.cross_entropy(out,y.to(weight.device), reduction='mean', weight=balancing_loss_weight.to(weight.device))
+
                     I = ch.eye(linear.weight.size(0))
 
                     target = I[y].to(weight.device) # change to OHE
@@ -533,7 +534,7 @@ def glm_saga(linear, loader, max_lr, nepochs, alpha,
              tol=1e-4, epsilon=0.001, k=100, checkpoint=None, 
              do_zero=True, lr_decay_factor=1, metadata=None, 
              val_loader=None, test_loader=None, lookbehind=None, 
-             family='multinomial', encoder=None): 
+             family='multinomial', encoder=None, balancing_loss_weight=None): 
     if encoder is not None: 
         warnings.warn("encoder argument is deprecated; please use preprocess instead", DeprecationWarning)
         preprocess = encoder
@@ -586,7 +587,7 @@ def glm_saga(linear, loader, max_lr, nepochs, alpha,
         state = train_saga(linear, loader, lr, nepochs, lam, alpha, 
                     table_device=table_device, preprocess=preprocess, group=group, verbose=verbose, 
                     state=state, n_ex=n_ex, n_classes=n_classes, tol=tol, lookbehind=lookbehind, 
-                    family=family, logger=logger)
+                    family=family, logger=logger, balancing_loss_weight=balancing_loss_weight)
         
         with ch.no_grad(): 
             loss,acc = elastic_loss_and_acc_loader(linear, loader, lam, alpha, preprocess=preprocess, family=family)
@@ -616,6 +617,7 @@ def glm_saga(linear, loader, max_lr, nepochs, alpha,
                     "loss_test": loss_test, 
                     "acc_test": acc_test, 
                 },
+                "balancing_loss_weight":balancing_loss_weight,
                 "weight": linear.weight.detach().cpu().clone(), 
                 "bias": linear.bias.detach().cpu().clone()
 

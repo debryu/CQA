@@ -30,10 +30,11 @@ def check_content(folder, indexes):
 
 
 def create_or_load_oracle_ds(args):
-    start = args.start_idx
-    end = args.end_idx
     concepts_dict = {}
+
     for split in ['train','val']: #,'test']:
+        start = args.start_idx
+        end = args.end_idx
         os.makedirs(LLM_GENERATED_ANNOTATIONS, exist_ok=True)
         os.makedirs(os.path.join(LLM_GENERATED_ANNOTATIONS, args.dataset), exist_ok=True)
         os.makedirs(os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), exist_ok=True)
@@ -47,16 +48,22 @@ def create_or_load_oracle_ds(args):
         ds_name = args.dataset.split("_")[0]
         ds = get_dataset(ds_name, split=split, transform=t)
         if start is None:
-            start = 0
+            if hasattr(ds,f'{split}_subset_indexes'):
+                start = getattr(ds,f"{split}_subset_indexes")[0]
+            else:
+                start = 0
         if end is None:
-            end = len(ds)  # One more just to be sure
+            if hasattr(ds,f'{split}_subset_indexes'):
+                end = getattr(ds,f"{split}_subset_indexes")[1]
+            else:
+                end = len(ds) 
         
         # Celeba train is the only exception since we have a weird train (from 25000 to 50000 instead of the beginning)
         if args.dataset == 'celeba' and split == 'train':
             used_indexes = [25000,50000]
         else:
             used_indexes = [0,len(ds)]
-
+            
         logger.debug(f"Used indexes: {used_indexes}")
         missing = []
         # Check if the dataset exists
@@ -78,22 +85,23 @@ def create_or_load_oracle_ds(args):
                 with open(path, 'r') as f:
                     concepts = f.read().split("\n")
                 queries = []
-                if ds_name == 'celeba':
-                    for c in concepts:
-                        queries.append(f"a person with {c}")
-                if ds_name == 'shapes3d':
-                    for c in concepts:
-                        queries.append(f"a {c}")
-                else:
-                    for c in concepts:
-                        queries.append(c)
+                #if ds_name == 'celeba':
+                #    for c in concepts:
+                #        queries.append(f"a person with {c}")
+                #if ds_name == 'shapes3d':
+                #    for c in concepts:
+                #        queries.append(f"a {c}")
+                #else:
+                for c in concepts:
+                        queries.append(c.replace("_"," "))
                 logger.debug(queries)
                 
+                #print(start,end)
                 dl = DataLoader(ds, batch_size=1, shuffle=False)
                 llm_concepts = query_llama(dl, queries, os.path.join(f"{LLM_GENERATED_ANNOTATIONS}/{args.dataset}",split), args=args, range=[start,end], missing=missing)
-                concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}.pth"), indexes=used_indexes)
+                concepts_dict[split] = unify_pickles(current_folder, os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth"), indexes=used_indexes)
                
-
+        # Compute frequencies
     return concepts_dict
 
 def train(args):
@@ -103,7 +111,7 @@ def train(args):
     args.num_c = llama_concepts['train'].shape[1]
     
     # This will not persist, as it is created runtime
-    class LlamaAnnotatedDataset(torch.utils.data.Dataset):
+    class AnnotatedDataset(torch.utils.data.Dataset):
         # Store some variables
         temp_args = args
         temp_ds = ds
@@ -131,12 +139,17 @@ def train(args):
             x,c,y = self.original_ds[index]
             llama_c = self.llama_concepts[index]
             return x, llama_c, y
+        
+        def get_pos_weights(self):
+            raise NotImplementedError
 
     # Inject this dataset into the available datasets temporary
     logger.debug("Injecting dataset")
     new_temp_args = copy.deepcopy(args)
     new_temp_args.dataset = f'{args.dataset}_oracle'
-    classes[new_temp_args.dataset] = LlamaAnnotatedDataset
+    
+    new_temp_args.balanced = True
+    classes[new_temp_args.dataset] = AnnotatedDataset
     logger.debug(f"Available datasets: {classes}")
     final_args = train_cbm(new_temp_args)
     vars(args).update(vars(final_args))

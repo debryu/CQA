@@ -2,12 +2,14 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+*.zip
 *.pkl
+*.png
 data
 saved_models
 paper_models
 grid_models
+ordered_models
 models/VLG/annotations
 models/VLG/saved_models
 models/LFCBM/saved_models

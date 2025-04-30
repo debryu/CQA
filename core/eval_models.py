@@ -5,10 +5,16 @@ from models import get_model
 from config import SAVED_MODELS_FOLDER, CONCEPTS_NOT_AVAILABLE
 from core.concept_quality import initialize_CQA
 from utils.args_utils import load_args
+from utils.utils import set_seed
+
 import shutil
 import copy
 # TODO: remove temporary fixes  asdg5etr and 42ohdfsa
 def eval_model(arguments):
+    if not os.path.isdir(arguments.load_dir):
+        raise ValueError()
+    else:
+        print("isdir")
     try:
         logger.info("Eval model", arguments)
         CQA = initialize_CQA(arguments.load_dir, arguments, split = 'test')
@@ -34,6 +40,7 @@ def eval_model(arguments):
                 wandb.define_metric("concept_accuracy", step_metric="manual_step")
                 wandb.define_metric("label_accuracy", step_metric="single_step")
                 wandb.define_metric("label_f1", step_metric="single_step")
+                wandb.define_metric("avg_concept_auc", step_metric="single_step")
                 wandb.define_metric("disentanglement", step_metric="single_step")
                 wandb.define_metric("avg_concept_accuracy", step_metric="single_step")
                 wandb.define_metric("avg_concept_f1", step_metric="single_step")
@@ -92,10 +99,19 @@ def eval_model(arguments):
                     logger.error(traceback.format_exc())
             
         if (CQA.main_args.concept_metrics or CQA.main_args.all) and criteria_concept_metrics:
-            if 'avg_concept_accuracy' not in CQA.metrics:
-                CQA.concept_metrics()
+            pass
+            #if 'avg_concept_accuracy' not in CQA.metrics:
+            CQA.concept_metrics()
             #CQA.save()
 
+        if (CQA.main_args.leakage or CQA.main_args.all) and criteria_concept_metrics:
+            CQA.compute_leakage()
+            CQA.save()
+        
+        if (CQA.main_args.ois or CQA.main_args.all) and criteria_concept_metrics:
+            CQA.compute_ois()
+            CQA.save()
+            
         if (CQA.main_args.label_metrics or CQA.main_args.all) and criteria_label_metrics:
             if 'label_accuracy' not in CQA.metrics:
                 CQA.get_classification_report()
@@ -108,6 +124,7 @@ def eval_model(arguments):
         if CQA.main_args.wandb:
             CQA.log_metrics()
             wandb.finish()
+        CQA.dump_metrics()
         CQA.save()
 
     except Exception as e:
@@ -160,10 +177,37 @@ def eval_all_models(args):
         completed.append(path)
     return
 
+def eval_all_models_inside_folder(args):
+    logger.debug(f"Model: Not specified, Path: {args.folder}")
+    models = os.listdir(args.folder)
+    for model in models:
+        logger.info(f"Loading model: {args.folder}/{model}")
+        temp_main_args = copy.deepcopy(args)
+        temp_main_args.load_dir = os.path.join(args.folder, model)
+        eval_model(temp_main_args)
+    return
+
+def eval_model_folder(path,args):
+    logger.debug(f"Model: Not specified, Path: {path}")
+    models = os.listdir(path)
+    for model in models:
+        logger.info(f"Loading model: {path}/{model}")
+        temp_main_args = copy.deepcopy(args)
+        temp_main_args.load_dir = os.path.join(path, model)
+        eval_model(temp_main_args)
+    return
+
 def CQ_Analysis(args):
     if args.load_dir is not None:
         logger.info(f"Loading model from {args.load_dir}")
         eval_model(args)
+    elif args.folder is not None:
+        logger.info(f"Loading all the models from {args.folder}")
+        eval_all_models_inside_folder(args)
+    elif args.folder2 is not None:
+        logger.info(f"Loading all the models from {args.folder2}")
+        for model_class in os.listdir(args.folder2):
+            eval_model_folder(os.path.join(args.folder2,model_class),args)
     else:
         logger.info(f"Loading all the models from config")
         eval_all_models(args)

@@ -14,12 +14,15 @@ Example:
 python train.py -model vlgcbm -dataset celeba -e 5
 
 '''
+##### Certificate Expired, try to override it
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Dynamic flags based on initial flag value.")
     
     # Add the primary flag
-    parser.add_argument('-model', required=True, type=str, choices=['lfcbm', 'resnetcbm','llamaoracle','vlgcbm','labo'], help="Specify the model to train.")
+    parser.add_argument('-model', required=True, type=str, choices=['lfcbm', 'resnetcbm','oracle','vlgcbm','labo'], help="Specify the model to train.")
     parser.add_argument('-logger', type=str, default="DEBUG", help="Logging level", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     parser.add_argument("-dataset", type=str, default="celeba", help="Dataset to use")
     parser.add_argument("-config", type=str, default=None, help="Path to a config file for setting all the parameters in a json file")
