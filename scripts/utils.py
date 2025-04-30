@@ -563,6 +563,7 @@ class ConceptDataset(Dataset):
 
     def _find_in_list(self, concept: str, bbxs):
         #for bb in bbxs:
+        #    print(bb["label"],"--",concept)
         #   if bb["label"].strip().replace(" ","_") != concept.strip().replace(" ","_"):
         #        if 'hooked' in concept.strip().replace(" ","_") or 'length' in concept.strip().replace(" ","_"):
         #            if 'hooked' in bb["label"].strip().replace(" ","_") or 'length' in bb["label"].strip().replace(" ","_"):
@@ -642,12 +643,17 @@ def get_concept_dataloader(
     concept_only=False
 ):
     dataset = ConceptDataset if not use_allones else partial(AllOneConceptDataset, get_classes(dataset_name))
+    
+    if dataset_name == 'vlgcbm_paper_cub':
+        ds_base = 'cub'
+    else:
+        ds_base = dataset_name
     if split == "test":
         dataset = dataset(
             dataset_name,
-            GenericDataset(dataset_name, split="test"),
+            GenericDataset(ds_base, split="test"),
             concepts,
-            split_suffix="val",
+            split_suffix="test",
             preprocess=preprocess,
             confidence_threshold=confidence_threshold,
             crop_to_concept_prob=crop_to_concept_prob,
@@ -658,7 +664,7 @@ def get_concept_dataloader(
     elif split == 'train':
         dataset = dataset(
             dataset_name,
-            GenericDataset(dataset_name, split="train"),
+            GenericDataset(ds_base, split="train"),
             concepts,
             split_suffix="train",
             preprocess=preprocess,
@@ -670,7 +676,7 @@ def get_concept_dataloader(
     elif split == 'val' or split == 'valid':
         dataset = dataset(
             dataset_name,
-            GenericDataset(dataset_name, split="val"),
+            GenericDataset(ds_base, split="val"),
             concepts,
             split_suffix="val",
             preprocess=preprocess,

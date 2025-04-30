@@ -171,8 +171,8 @@ def get_filtered_concepts_and_counts(
     for data in tqdm(dataloader):
         raw_concepts_count += data[1].sum(dim=0)
     
-    print(raw_concepts[1])
-    print(raw_concepts[51])
+    #print(raw_concepts[1])
+    #print(raw_concepts[51])
     logger.debug(f"Filtered concepts index: {torch.where(raw_concepts_count==0)}")
     # remove concepts that are not present in the dataset
     

@@ -5,6 +5,8 @@ from models import get_model
 from config import SAVED_MODELS_FOLDER, CONCEPTS_NOT_AVAILABLE
 from core.concept_quality import initialize_CQA
 from utils.args_utils import load_args
+from utils.utils import set_seed
+
 import shutil
 import copy
 # TODO: remove temporary fixes  asdg5etr and 42ohdfsa
@@ -102,6 +104,14 @@ def eval_model(arguments):
             CQA.concept_metrics()
             #CQA.save()
 
+        if (CQA.main_args.leakage or CQA.main_args.all) and criteria_concept_metrics:
+            CQA.compute_leakage()
+            CQA.save()
+        
+        if (CQA.main_args.ois or CQA.main_args.all) and criteria_concept_metrics:
+            CQA.compute_ois()
+            CQA.save()
+            
         if (CQA.main_args.label_metrics or CQA.main_args.all) and criteria_label_metrics:
             if 'label_accuracy' not in CQA.metrics:
                 CQA.get_classification_report()
@@ -175,7 +185,16 @@ def eval_all_models_inside_folder(args):
         temp_main_args = copy.deepcopy(args)
         temp_main_args.load_dir = os.path.join(args.folder, model)
         eval_model(temp_main_args)
-    
+    return
+
+def eval_model_folder(path,args):
+    logger.debug(f"Model: Not specified, Path: {path}")
+    models = os.listdir(path)
+    for model in models:
+        logger.info(f"Loading model: {path}/{model}")
+        temp_main_args = copy.deepcopy(args)
+        temp_main_args.load_dir = os.path.join(path, model)
+        eval_model(temp_main_args)
     return
 
 def CQ_Analysis(args):
@@ -185,6 +204,10 @@ def CQ_Analysis(args):
     elif args.folder is not None:
         logger.info(f"Loading all the models from {args.folder}")
         eval_all_models_inside_folder(args)
+    elif args.folder2 is not None:
+        logger.info(f"Loading all the models from {args.folder2}")
+        for model_class in os.listdir(args.folder2):
+            eval_model_folder(os.path.join(args.folder2,model_class),args)
     else:
         logger.info(f"Loading all the models from config")
         eval_all_models(args)

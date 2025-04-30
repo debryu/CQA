@@ -36,6 +36,7 @@ def train(args):
     with open(args.concept_set) as f:
         concepts = f.read().split("\n")
 
+    device = args.device
     concepts_dict = {'raw_concepts': concepts, 'raw_dim': len(concepts)}
     classes = LABELS[args.dataset.split("_")[0]]
     logger.debug(f"Classes: {classes}")
@@ -76,7 +77,7 @@ def train(args):
 
         test_image_features = torch.load(test_clip_save_name, map_location="cpu", weights_only=True).float()
         test_image_features /= torch.norm(test_image_features, dim=1, keepdim=True)
-
+    
         text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()
         text_features /= torch.norm(text_features, dim=1, keepdim=True)
         
@@ -92,22 +93,27 @@ def train(args):
     
     from utils.labo_utils import FinalLayer
     import numpy as np
+    
     train_ds_labo = TensorDataset(clip_features, torch.tensor(train_targets))
     val_ds_labo = TensorDataset(val_clip_features, torch.tensor(val_targets))
     test_ds_labo = TensorDataset(test_clip_features, torch.tensor(test_targets))
+    print(test_clip_features[0])
     train_loader_labo = DataLoader(train_ds_labo, 64, shuffle=True)
     val_loader_labo = DataLoader(val_ds_labo, 64, shuffle=False)
-    test_loader_labo = DataLoader(test_ds_labo, 64, shuffle=False)
-    final_layer = FinalLayer(clip_features.shape[1],len(classes))
-    optim = torch.optim.Adam(final_layer.parameters(), lr=0.001)
+    from utils.utils import set_seed
+    set_seed(42)
+    test_loader_labo = DataLoader(test_ds_labo, 64, shuffle=True)
+    final_layer = FinalLayer(clip_features.shape[1],len(classes)).to(device)
+    optim = torch.optim.Adam(final_layer.parameters(), lr=args.lr)
     best_loss = 100000
     patience = 0
-    for e in range(1000):
+    for e in range(10000):
         t_losses = []
-        for batch in train_loader_labo:
+        for batch in train_loader_labo: #train_loader_labo
             clip, labl = batch
-            sim = final_layer(clip*100)
-            loss = torch.nn.functional.cross_entropy(sim, labl)
+            clip = clip.to(device)
+            sim = final_layer(clip*100).to(device)
+            loss = torch.nn.functional.cross_entropy(sim, labl.to(device))
             optim.zero_grad()
             loss.backward()
             optim.step()
@@ -115,8 +121,9 @@ def train(args):
         v_losses = []
         for batch in val_loader_labo:
             clip, labl = batch
-            sim = final_layer(clip*100)
-            loss = torch.nn.functional.cross_entropy(sim, labl)
+            clip = clip.to(device)
+            sim = final_layer(clip*100).to(device)
+            loss = torch.nn.functional.cross_entropy(sim, labl.to(device))
             v_losses.append(loss.item())
         logger.info(f"Train loss: {np.mean(t_losses)} Val loss: {np.mean(v_losses)}. Patience: {patience}")
         patience += 1
@@ -124,13 +131,14 @@ def train(args):
             best_loss = np.mean(v_losses)
             W_g = final_layer.asso_mat
             patience = 0
-        if patience > 6:
+        if patience > 600:
             break
     b_g = torch.zeros(len(classes))
     predictions = []
     labels = []
     for batch in test_loader_labo:
         clip, labl = batch
+        clip = clip.to(device)
         #print(clip.shape)
         #print(labl)
         preds = final_layer(clip*100)
@@ -142,8 +150,47 @@ def train(args):
         predictions.extend(preds)
         labels.extend(labl.cpu().tolist())
     #input("...")
+    
     from sklearn.metrics import classification_report
     print(classification_report(labels,predictions))
+    #input("...")
+    from metrics.leakage import LeakageSVM
+    #leak = LeakageSVM(in_features=len(subset),out_features=n_concepts, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device, init=last_c_model_W)
+        
+    predictor = LeakageSVM(in_features=concepts_dict['raw_dim'], out_features=len(classes), lr=0.0001, step_size=80, lam=0.8, alpha=0.99, n_classes=len(classes), device='cpu')
+    #test_clip_features
+    test_ds_labo = TensorDataset(clip_features*100, torch.tensor(train_targets))
+    test_ldr = DataLoader(test_ds_labo, 64, shuffle=True)
+    test_ds_labo = TensorDataset(test_clip_features*100, torch.tensor(test_targets))
+    test_ldr = DataLoader(test_ds_labo, 64, shuffle=True)
+    predictor.train(test_ldr, train_test_split=0.7)
+    i_test = 0
+    predictions = []
+    labels = []
+    for batch in test_loader_labo:
+        if i_test < len(test_loader_labo)*0.7:
+            i_test+=1
+            continue
+        i_test +=1
+        
+        clip, labl = batch
+        print(clip.shape)
+        #print(clip.shape)
+        #print(labl)
+        #print(clip[0,104]*100)
+        #print(clip[0,11]*100)
+        preds = predictor.best_model(clip*100)
+        #print(preds)
+        #asd
+        #print(preds)
+        #print(preds.shape)
+        preds = torch.argmax(preds, dim=1)
+        #print(preds)
+        #print(preds)
+        predictions.extend(preds)
+        labels.extend(labl.cpu().tolist())
+    print(classification_report(labels,predictions))
+    
     '''
     #
     with torch.no_grad():

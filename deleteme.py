@@ -2,17 +2,92 @@ import torch.optim
 from datasets import get_dataset
 from torch.utils.data import Subset
 import torch
+from torch.utils.data import DataLoader
 import pickle 
 from datasets.dataset_classes import SKINCON_Original, CHESTMINST_Dataset
 from tqdm import tqdm
 from datasets import GenericDataset
 from torchvision import transforms
+from sklearn.svm import LinearSVC
 import numpy as np
+from sklearn.metrics import classification_report
 t = transforms.Compose([
             transforms.ToTensor(),
             transforms.Resize((224,224)),
         ])
-ds_train = GenericDataset('cub', split = 'train', transform = t)
+
+dataset = 'celeba'
+
+
+###################################
+##           train svm           ##
+###################################
+ds_train = GenericDataset(dataset, split = 'train', transform = t)
+train_l = DataLoader(ds_train, batch_size = 64, shuffle = False)
+ds_test = GenericDataset(dataset, split = 'test', transform = t)
+test_l = DataLoader(ds_test, batch_size = 64, shuffle = False)
+labels = []
+test_labels = []
+concepts = []
+test_concepts = []
+for i,sample in enumerate(ds_train):
+    if i > 100:
+        break
+    _,c,l = sample
+    labels.append(l.item())
+    concepts.append(c)
+    #print(c.shape)
+concepts=torch.stack(concepts, dim=0).numpy()
+labels = np.array(labels)
+print(concepts.shape)
+print(labels.shape)
+for i,sample in enumerate(ds_test):
+    if i > 100:
+        break
+    _,c,l = sample
+    test_labels.append(l.item())
+    test_concepts.append(c)
+test_concepts=torch.stack(test_concepts, dim=0).numpy()
+
+model = LinearSVC(C = 1, class_weight='balanced')
+model.fit(concepts,labels)
+print(model.score(concepts,labels), model.score(test_concepts,test_labels))
+
+print(model.coef_)
+print(model.coef_.shape)
+w = torch.tensor(model.coef_)
+b = torch.tensor(model.intercept_)
+_out,_in= w.shape
+print(_out)
+if _out == 1:
+    _out = 2
+    w_negative = -w
+    b_negative = -b
+    w = torch.cat((w_negative,w), dim=0)
+    b = torch.cat((b_negative,b), dim=0)
+    #print(w.shape)
+    
+best_model = torch.nn.Linear(_in,_out).to('cuda')
+best_model.load_state_dict({'weight':w, 'bias':b})
+
+predictions = []
+labels = []
+for batch in train_l:
+    _,conc,lab = batch
+    conc = conc.to('cuda').float()
+    lab = lab.to('cuda')
+    preds = best_model(conc)
+    preds = torch.argmax(preds, dim=1)
+    labels.extend(lab.tolist())
+    predictions.extend(preds.tolist())
+    
+#print(predictions)
+#print(labels)
+#print(labels)
+print(classification_report(labels,predictions))
+asd
+
+
 model = torch.nn.Linear(112,200).to('cuda')
 torch.nn.init.zeros_(model.weight)
 torch.nn.init.zeros_(model.bias)
