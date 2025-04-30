@@ -59,3 +59,16 @@ To evaluate a model run:
 ```
 python main.py -folder <YOUR MODEL FOLDER> -all
 ```
+
+# Cite this work
+```
+@misc{debole2025conceptbottlenecksquestionfoundation,
+      title={If Concept Bottlenecks are the Question, are Foundation Models the Answer?}, 
+      author={Nicola Debole and Pietro Barbiero and Francesco Giannini and Andrea Passerini and Stefano Teso and Emanuele Marconato},
+      year={2025},
+      eprint={2504.19774},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2504.19774}, 
+}
+```
