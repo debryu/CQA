@@ -17,7 +17,7 @@
     <img src="https://img.shields.io/badge/%F0%9F%93%AA-Get in touch-green?style=flat" alt="Mail to">
   </a>
 </div>
- 
+</div>
 # Getting Started
 ## Installation
 1. Clone the repository:
