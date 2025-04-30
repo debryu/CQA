@@ -1,15 +1,16 @@
 <div align="center">
-  <h3 align="center">If Concept Bottlenecks are the Question, are Foundation Models the Answer?</h3>
+  <h1 align="center">If Concept Bottlenecks are the Question, are Foundation Models the Answer?</h1>
 </div>
   <div align="center">
-  <a href="https://arxiv.org/abs/2504.19774v2">
-    <img src="https://img.shields.io/badge/%F0%9F%93%84-Paper-blue?style=flat" alt="Paper Badge">
-  </a>
+ 
   <div align="center">
+	  Researchers have recently proposed novel architectures that replace manual annotations with weak supervision from foundation models. It is however unclear what is the impact on the quality of the learned concepts. To answer this question, we put various models to the test, analyzing their learned concepts empirically using a selection of significant metrics.
 	  <img src="prev.jpg" alt="preview" width="700" height="300">
   </div>
   
-    
+ <a href="https://arxiv.org/abs/2504.19774v2">
+    <img src="https://img.shields.io/badge/%F0%9F%93%84-Paper-blue?style=flat" alt="Paper Badge">
+  </a>
 </div>
 
 <div align="center">
