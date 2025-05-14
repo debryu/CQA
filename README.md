@@ -60,14 +60,19 @@ To evaluate a model run:
 python main.py -folder <YOUR MODEL FOLDER> -all
 ```
 # Sources
+
 - Label-free CBM: <https://github.com/Trustworthy-ML-Lab/Label-free-CBM>
 - LaBo CBM: <https://github.com/YueYANG1996/LaBo>
-- Grounding DINO: <https://github.com/IDEA-Research/GroundingDINO>
 - VLG-CBM: <https://github.com/Trustworthy-ML-Lab/VLG-CBM>
 - CUB dataset: <https://www.vision.caltech.edu/datasets/cub_200_2011/>
+- SHAPES3D dataset: <https://github.com/google-deepmind/3d-shapes>
+- CELEBA dataset: <https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html>
 - DCI metrics: <https://github.com/andreinicolicioiu/DCI-ES>
+- OIS metric: <https://github.com/mateoespinosa/concept-quality>
 - Sparse final layer training: <https://github.com/MadryLab/glm_saga>
 - CLIP: <https://github.com/openai/CLIP>
+- Grounding DINO: <https://github.com/IDEA-Research/GroundingDINO>
+- LLava Phi 3 (using Ollama): <https://ollama.com/library/llava-phi3>
 
 # Cite this work
 ```
