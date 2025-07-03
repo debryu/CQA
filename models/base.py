@@ -5,8 +5,8 @@ from loguru import logger
 from torchvision import transforms
 from torchvision.transforms.v2 import ColorJitter, GaussianNoise
 
-from config import SAVED_MODELS_FOLDER
-from datasets import GenericDataset
+from CQA.config import SAVED_MODELS_FOLDER
+from CQA.datasets import GenericDataset
 
 class BaseModel():
     def __init__(self,*args):

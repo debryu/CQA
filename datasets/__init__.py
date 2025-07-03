@@ -1,11 +1,10 @@
-from config import DATASETS_FOLDER_PATHS
-import datasets.dataset_classes as dataset_classes
+from CQA.config import DATASETS_FOLDER_PATHS
+import CQA.datasets.dataset_classes as dataset_classes
 import inspect
 import torch
 from loguru import logger
 import json
 import os
-import numpy as np
 
 classes = {}
 # Get all classes from the module
@@ -20,9 +19,37 @@ for name, cls in inspect.getmembers(dataset_classes, inspect.isclass):
 logger.debug(f"Available datasets: {classes}")
 
 
-
-class GenericDataset():
+def get_dataset(ds_name,**kwargs):
+  if ds_name.endswith("_oracle") and 'split' in kwargs.keys():
+      # If we evaluate (on test set) the dataset needs to be the original with ground truth values
+      # On the other hand, for training and validation we use the dataset annotated by the LLM oracle
+      if kwargs['split'] == 'test':
+        ds_name = ds_name.split("_")[0]
+  if ds_name not in classes:
+    raise ValueError(f"Dataset {ds_name} not found in dataset_classes")
+  else:
+    logger.debug(f"Getting dataset {ds_name} with kwargs {kwargs}")
+    base = ds_name.split("_")[0]
+    if 'root' in kwargs:
+      return classes[ds_name](**kwargs)
+    return classes[ds_name](root = DATASETS_FOLDER_PATHS[base], **kwargs)
+  '''
+  if not ds_name.endswith("_mini"):
+    if ds_name.endswith("temp"):
+      return classes[ds_name](**kwargs)
+    if ds_name not in DATASETS_FOLDER_PATHS:
+      raise ValueError(f"Dataset {ds_name} not found in DATASETS_FOLDER_PATHS")
+    return classes[ds_name](root = DATASETS_FOLDER_PATHS[ds_name], **kwargs)
+  else:
+    original_ds_name = ds_name.split("_mini")[0]
+    if original_ds_name not in DATASETS_FOLDER_PATHS:
+      raise ValueError(f"Dataset {original_ds_name} not found in DATASETS_FOLDER_PATHS")
+    return classes[ds_name](root = DATASETS_FOLDER_PATHS[original_ds_name], **kwargs)
+  '''
+  
+class GenericDataset(torch.utils.data.Dataset):
     def __init__(self, ds_name, **kwargs):
+        super().__init__()
         #print(ds_name)
         self.dataset = get_dataset(ds_name, **kwargs)
         base = ds_name.split("_")[0]
@@ -112,33 +139,3 @@ class GenericDataset():
     
     def __getitem__(self, idx):
         return self.dataset[idx]
-        
-    
-
-def get_dataset(ds_name,**kwargs):
-  if ds_name.endswith("_oracle") and 'split' in kwargs.keys():
-      # If we evaluate (on test set) the dataset needs to be the original with ground truth values
-      # On the other hand, for training and validation we use the dataset annotated by the LLM oracle
-      if kwargs['split'] == 'test':
-        ds_name = ds_name.split("_")[0]
-  if ds_name not in classes:
-    raise ValueError(f"Dataset {ds_name} not found in dataset_classes")
-  else:
-    logger.debug(f"Getting dataset {ds_name} with kwargs {kwargs}")
-    base = ds_name.split("_")[0]
-    if 'root' in kwargs:
-      return classes[ds_name](**kwargs)
-    return classes[ds_name](root = DATASETS_FOLDER_PATHS[base], **kwargs)
-  '''
-  if not ds_name.endswith("_mini"):
-    if ds_name.endswith("temp"):
-      return classes[ds_name](**kwargs)
-    if ds_name not in DATASETS_FOLDER_PATHS:
-      raise ValueError(f"Dataset {ds_name} not found in DATASETS_FOLDER_PATHS")
-    return classes[ds_name](root = DATASETS_FOLDER_PATHS[ds_name], **kwargs)
-  else:
-    original_ds_name = ds_name.split("_mini")[0]
-    if original_ds_name not in DATASETS_FOLDER_PATHS:
-      raise ValueError(f"Dataset {original_ds_name} not found in DATASETS_FOLDER_PATHS")
-    return classes[ds_name](root = DATASETS_FOLDER_PATHS[original_ds_name], **kwargs)
-  '''

@@ -1,5 +1,5 @@
 import torch
-from models.base import BaseModel
+from CQA.models.base import BaseModel
 import os 
 from loguru import logger
 from tqdm import tqdm
@@ -13,7 +13,7 @@ try:
 except ImportError:
     BICUBIC = Image.BICUBIC
 
-from utils.resnetcbm_utils import PretrainedResNetModel
+from CQA.utils.resnetcbm_utils import PretrainedResNetModel
 
 def get_backbone_function(model, x):
     return model.features(x)

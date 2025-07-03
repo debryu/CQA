@@ -1,11 +1,11 @@
 import torch.nn as nn
 import torch
-from models.base import BaseModel
+from CQA.models.base import BaseModel
 import os 
 import json
 from loguru import logger
 from tqdm import tqdm
-from utils.lfcbm_utils import get_target_model
+from CQA.utils.lfcbm_utils import get_target_model
 import torchvision.transforms as transforms
 from functools import partial
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
@@ -93,7 +93,7 @@ class LFCBM(BaseModel):
     
     def get_transform(self,split):
         # Must use the same transform used for training
-        import utils.clip as clip
+        import CQA.utils.clip as clip
         _, preprocess = clip.load(self.args.clip_name, device=self.args.device)
         return preprocess
 

@@ -1,5 +1,5 @@
-from metrics.dci import DCI_wrapper
-from utils.dci_utils import save_IM_as_img, heatmap
+from CQA.metrics.dci import DCI_wrapper
+from CQA.utils.dci_utils import save_IM_as_img, heatmap
 import pickle
 import torch
 import os
@@ -7,19 +7,20 @@ import json
 import copy
 import numpy as np
 #from utils.utils import compute_concept_frequencies
-from models import get_model
-from utils.utils import set_seed
+from CQA.models import get_model
+from CQA.utils.utils import set_seed
 from loguru import logger
 from sklearn.metrics import classification_report as cr
-from metrics.common import get_conceptWise_metrics, compute_AUCROC_concepts
-from metrics.leakage import leakage_collapsing, auto_leakage
-from utils.eval_models import train_LR_on_concepts
+from CQA.metrics.common import get_conceptWise_metrics, compute_AUCROC_concepts
+from CQA.metrics.leakage import leakage_collapsing, auto_leakage
+from CQA.utils.eval_models import train_LR_on_concepts
 from sklearn.ensemble import RandomForestClassifier
-from metrics.ois import oracle_impurity_score
-from config import LABELS, METRICS, REQUIRES_SIGMOID
-from utils.args_utils import load_args
+from CQA.metrics.ois import oracle_impurity_score
+from CQA.config import LABELS, METRICS, REQUIRES_SIGMOID
+from CQA.utils.args_utils import load_args
 import wandb
 import traceback
+import argparse
 
 # TODO: Fix TEMP and add the correct target names
 # TODO: Count Imbalances for each ds once
@@ -53,7 +54,6 @@ class CONCEPT_QUALITY():
     return
 
   def save(self):
-    
     try:
       pickle.dump(self, open(self.CQA_save_path, "wb"))
     except:
@@ -185,7 +185,12 @@ class CONCEPT_QUALITY():
     with open(os.path.join(self.model.args.load_dir, "metrics.txt"), "w") as f:
       json.dump(serializable_dict, f, indent=2)
 
-
+  def __str__(self):
+    text = ''
+    for k,v in self.metrics.items():
+      text += f'{k}: {v}\n'
+    return text
+  
   def log_metrics(self): 
     logging_metrics = {}
     log_c_accuracies = False
@@ -261,6 +266,49 @@ def initialize_CQA(folder_path, args, split = 'test'):
     set_seed(main_args.eval_seed)
   return CQA
 
+def initialize_CQA_v2(folder_path, args, split = 'test'):
+    if os.path.exists(os.path.join(folder_path,'CQA.pkl')) and not args.force:
+      logger.info("CQA found. Loading CQA.")
+      try:
+        with open(os.path.join(folder_path,'CQA.pkl'), 'rb') as f:
+          CQA = pickle.load(f)
+      except:
+        import dill
+        with open(os.path.join(folder_path,'CQA.pkl'), "wb") as dill_file:
+          dill.dump(CQA, dill_file)
+        #CQA = dill.load(os.path.join(folder_path,'CQA.pkl'), 'rb')
+      
+      CQA.main_args = argparse.Namespace()
+      setattr(CQA.main_args, 'all', True)
+      setattr(CQA.main_args, 'wandb', False)
+      setattr(CQA.main_args, 'eval_seed', args.eval_seed)
+      setattr(CQA.main_args, 'load_dir', args.load_dir)
+      CQA.args = args
+      CQA.save()
+      try:
+        logger.debug(CQA.metrics)
+      except:
+        CQA.metrics = {}
+    else:
+      logger.info("No CQA found. Initializing...")
+      # Load model
+      model = get_model(args)
+      logger.debug(f"Model loaded: {model}")
+      # args are uploaded in the model, so no need to pass them again
+      CQA = CONCEPT_QUALITY(model)
+      CQA.args = args
+      CQA.main_args = argparse.Namespace()
+      setattr(CQA.main_args, 'all', True)
+      setattr(CQA.main_args, 'wandb', False)
+      setattr(CQA.main_args, 'eval_seed', args.eval_seed)
+      setattr(CQA.main_args, 'load_dir', args.load_dir)
+      logger.info(f"Running the model on {model.args.dataset} {split}...")
+      # Run the model to get all the outputs
+      CQA.store_output()
+      CQA.save()
+      set_seed(args.eval_seed)
+    
+    return CQA
 
 def open_CQA(folder_path):
   logger.debug(f"Opening CQA from {folder_path}")

@@ -1,0 +1,5 @@
+loguru
+medmnist
+h5py
+matplotlib
+wandb

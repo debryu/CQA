@@ -1,20 +1,22 @@
 
-from config import CONCEPT_SETS, LLM_GENERATED_ANNOTATIONS, ACTIVATIONS_PATH, DINO_GENERATED_ANNOTATIONS
+from CQA.config import CONCEPT_SETS, LLM_GENERATED_ANNOTATIONS, ACTIVATIONS_PATH, DINO_GENERATED_ANNOTATIONS
 from loguru import logger
 from torchvision import transforms
-import scripts.utils
+import CQA.scripts.utils as scrut
 import torchvision
 import torch
-from datasets import GenericDataset
+from CQA.datasets import GenericDataset
 from sklearn.metrics import classification_report
-from utils.eval_models import train_LR_global, train_LR_on_concepts, train_LR_on_concepts_shapes3d
+from CQA.utils.eval_models import train_LR_global, train_LR_on_concepts, train_LR_on_concepts_shapes3d
+from CQA.metrics.common import compute_AUCROC_concepts
 import numpy as np
 import os
 import copy
 from tqdm import tqdm
 from matplotlib import pyplot as plt
-dataset = 'cub'
+dataset = 'shapes3d'
 device = 'cuda'
+seed = 42
 confidence_threshold = 0.10
 annotation_dir = DINO_GENERATED_ANNOTATIONS
 
@@ -115,16 +117,16 @@ def compute(loader, dataset_name, n_concepts, name = ''):
         print("\n")
 
 def GDino():
-    raw_concepts = scripts.utils.get_concepts(concept_set)
+    raw_concepts = scrut.get_concepts(concept_set)
     n_concepts = len(raw_concepts)
     # It shouldn't matter what backbone is being used
-    backbone = scripts.utils.BackboneCLIP('clip_RN50', use_penultimate=False, device=device)
+    backbone = scrut.BackboneCLIP('clip_RN50', use_penultimate=False, device=device)
     logger.debug(f"Raw concepts n.{len(raw_concepts)}")
     (
         concepts,
         concept_counts,
         filtered_concepts,
-    ) = scripts.utils.get_filtered_concepts_and_counts(
+    ) = scrut.get_filtered_concepts_and_counts(
         dataset,
         raw_concepts,
         preprocess=transforms.ToTensor(),#backbone.preprocess,
@@ -138,7 +140,7 @@ def GDino():
         remove_never_seen=False
     )
 
-    augmented_train_cbl_loader = scripts.utils.get_concept_dataloader(
+    augmented_train_cbl_loader = scrut.get_concept_dataloader(
             dataset,
             "train",
             concepts,
@@ -156,6 +158,81 @@ def GDino():
 
     compute(augmented_train_cbl_loader, dataset, n_concepts, name = 'GDINO')
 
+
+def GDinoAUC():
+    raw_concepts = scrut.get_concepts(concept_set)
+    n_concepts = len(raw_concepts)
+    # It shouldn't matter what backbone is being used
+    backbone = scrut.BackboneCLIP('clip_RN50', use_penultimate=False, device=device)
+    from torchvision import transforms
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
+    if dataset == 'cub':
+        annotation_dir = DINO_GENERATED_ANNOTATIONS
+    else:
+        annotation_dir = './data/VLG_annotations/'
+    logger.debug(f"Raw concepts n.{len(raw_concepts)}")
+    (
+        concepts,
+        concept_counts,
+        filtered_concepts,
+    ) = scrut.get_filtered_concepts_and_counts(
+        dataset,
+        raw_concepts,
+        preprocess=transforms.ToTensor(),#backbone.preprocess,
+        val_split=0.0,
+        batch_size=64,
+        num_workers=1,
+        confidence_threshold=confidence_threshold,
+        label_dir=annotation_dir,
+        use_allones=False,
+        seed=42,
+        remove_never_seen=False
+    )
+
+    augmented_train_cbl_loader = scrut.get_concept_dataloader(
+            dataset,
+            "train",
+            concepts,
+            preprocess=transforms.ToTensor(),
+            val_split=0.0,
+            batch_size=1,
+            num_workers=1,
+            shuffle=False, 
+            confidence_threshold=confidence_threshold,
+            crop_to_concept_prob=0.0,  # crop to concept
+            label_dir=annotation_dir,
+            use_allones=False,
+            seed=42,
+        )
+
+    index = 0
+    all_preds = []
+    for sample in tqdm(augmented_train_cbl_loader):
+        img2,pred_concepts,pred_labels = sample
+        pred_concepts = pred_concepts.squeeze().cpu().long()
+        all_preds.append(pred_concepts)
+        index += 1
+    all_preds = torch.stack(all_preds, dim=0)
+    print(all_preds.shape)
+    original_ds = GenericDataset(ds_name=dataset, split = 'train')
+    targets = []
+    for i in range(len(original_ds)):
+        _,concepts,_ = original_ds[i]
+        if not isinstance(concepts, torch.Tensor):
+            concepts = torch.tensor(concepts)
+        targets.append(concepts)
+    targets = torch.stack(targets, dim=0)
+    
+    import argparse
+    args = argparse.Namespace()
+    args.dataset = dataset
+    args.seed = seed
+    output = {'concepts_pred': all_preds, 'concepts_gt': targets}
+    res = compute_AUCROC_concepts(output,args)
+    print(res)
+    return res
 
 
 
@@ -176,12 +253,56 @@ def LLava():
     gt_data = GenericDataset(ds_name=f"{dataset}", split='train', transform = transform)
     concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{dataset}_train_{used_indexes[0]}_{used_indexes[1]}.pth"), weights_only=True) 
     args = {"original_ds":gt_data, "train_concepts":concepts}
-    oracle_data = scripts.utils.AnnotatedDataset(**args)
+    oracle_data = scrut.AnnotatedDataset(**args)
     
     loader = torch.utils.data.DataLoader(oracle_data, batch_size=1, shuffle=False)
     n_concepts = oracle_data[0][1].shape[0]
     compute(loader, dataset, n_concepts, name = 'LLava')
     pass    
+
+def LLavaAUC():
+    if dataset=='cub':
+        used_indexes = [0,4796]
+    if dataset=='celeba':
+        used_indexes = [25000,50000]
+    if dataset == 'shapes3d':
+        used_indexes = [0,48000]
+    else:
+        pass
+    from torchvision import transforms
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
+    gt_data = GenericDataset(ds_name=f"{dataset}", split='train', transform = transform)
+    concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{dataset}_train_{used_indexes[0]}_{used_indexes[1]}.pth"), weights_only=True) 
+    args = {"original_ds":gt_data, "train_concepts":concepts}
+    oracle_data = scrut.AnnotatedDataset(**args)
+    original_ds = GenericDataset(ds_name=dataset, split = 'train')
+    targets = []
+    for i in range(len(original_ds)):
+        _,concepts,_ = original_ds[i]
+        if not isinstance(concepts, torch.Tensor):
+            concepts = torch.tensor(concepts)
+        targets.append(concepts)
+    targets = torch.stack(targets, dim=0)
+
+    annotations = []
+    for i in tqdm(range(len(oracle_data))):
+        _,concepts,_ = oracle_data[i]
+        if not isinstance(concepts, torch.Tensor):
+            concepts = torch.tensor(concepts)
+        annotations.append(concepts)
+    annotations = torch.stack(annotations, dim=0)
+    logger.info("Training Logistic Regression on All Concepts")
+    import argparse
+    args = argparse.Namespace()
+    args.dataset = dataset
+    args.seed = seed
+    output = {'concepts_pred': annotations, 'concepts_gt': targets}
+    res = compute_AUCROC_concepts(output,args)
+    print(res['avg_concept_auc'])
+    
+    return res   
 
 
 def Clip():
@@ -200,7 +321,7 @@ def Clip():
         f_layer = 'layer4'
         backb = 'clip_RN50'
         
-    target_save_name, clip_save_name, text_save_name = scripts.utils.get_save_names(clip_name, backb, 
+    target_save_name, clip_save_name, text_save_name = scrut.get_save_names(clip_name, backb, 
                                             f_layer,d_train, c_set, "avg", activation_dir)
     
     logger.debug(f"Target save name: {target_save_name}")
@@ -226,7 +347,7 @@ def Clip():
     cf = copy.deepcopy(clip_features)
     probs = torch.nn.functional.sigmoid(cf)   
     preds = (probs > 0.5).long()
-    clip_ds = scripts.utils.ClipDataset(preds)
+    clip_ds = scrut.ClipDataset(preds)
     loader = torch.utils.data.DataLoader(clip_ds,batch_size=1,shuffle=False)
     original_ds = GenericDataset(ds_name=dataset, split = 'train')
     n_concepts = original_ds[0][1].shape[0]
@@ -312,16 +433,90 @@ def Clip():
     else:      
         probs = torch.nn.functional.sigmoid(cf)      
         preds = (probs > 0.5)
-    clip_ds = scripts.utils.ClipDataset(preds.long())
+    clip_ds = scrut.ClipDataset(preds.long())
     loader = torch.utils.data.DataLoader(clip_ds,batch_size=1,shuffle=False)
     original_ds = GenericDataset(ds_name=dataset, split = 'train')
     n_concepts = original_ds[0][1].shape[0]
     compute(loader, dataset, n_concepts=n_concepts, name='CLIP - LR on all')
 
+def ClipAUC():
+    d_train = dataset + "_train"
+    clip_name = "ViT-B/16"
+    if dataset == 'cub':
+        c_set = os.path.join(concept_set,'cub_preprocess.txt')
+        f_layer = 'features.final_pool'
+        backb = 'resnet18_cub'
+    if dataset == 'celeba':
+        c_set = os.path.join(concept_set,'handmade.txt')
+        f_layer = 'layer4'
+        backb = 'clip_RN50'
+    if dataset == 'shapes3d':
+        c_set = os.path.join(concept_set,'shapes3d.txt')
+        f_layer = 'layer4'
+        backb = 'clip_RN50'
+        
+    target_save_name, clip_save_name, text_save_name = scrut.get_save_names(clip_name, backb, 
+                                            f_layer,d_train, c_set, "avg", activation_dir)
+    
+    logger.debug(f"Target save name: {target_save_name}")
+    logger.debug(f"Clip save name: {clip_save_name}")
+    logger.debug(f"Text save name: {text_save_name}")
 
+    #load features
+    with torch.no_grad():
+        target_features = torch.load(target_save_name, map_location="cpu", weights_only=True).float()
+
+        image_features = torch.load(clip_save_name, map_location="cpu", weights_only=True).float()
+        image_features /= torch.norm(image_features, dim=1, keepdim=True)
+
+
+        text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()
+        text_features /= torch.norm(text_features, dim=1, keepdim=True)
+        
+        clip_features = image_features @ text_features.T    
+
+        del image_features
+    
+      
+    original_ds = GenericDataset(ds_name=dataset, split = 'train')
+    targets = []
+    for i in range(len(original_ds)):
+        _,concepts,_ = original_ds[i]
+        if not isinstance(concepts, torch.Tensor):
+            concepts = torch.tensor(concepts)
+        targets.append(concepts)
+    targets = torch.stack(targets, dim=0)
+    logger.info("Training Logistic Regression on All Concepts")
+    import argparse
+    args = argparse.Namespace()
+    args.dataset = dataset
+    args.seed = seed
+    output = {'concepts_pred': clip_features, 'concepts_gt': targets}
+    res = compute_AUCROC_concepts(output,args)
+    print(res['avg_concept_auc'])
+    return res
 
 
 if __name__ == '__main__':
+    
+    rDINO = GDinoAUC()
+    #input("Press enter to continue...")
+    
+    rLLAVA = LLavaAUC()
+    #input("Press enter to continue...")
+
+    rCLIP = ClipAUC()
+    #input("Press enter to continue...")
+    
+    
+    
+    print('CLIP AUC:',rCLIP['avg_concept_auc'])
+    print('DINO AUC:',rDINO['avg_concept_auc'])
+    print('LLAVA AUC:',rLLAVA['avg_concept_auc'])
+    
+    input("Press enter to continue...")
+    asd
+
     LLava()
     input("Press enter to continue...")
     

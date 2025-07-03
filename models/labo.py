@@ -1,18 +1,18 @@
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from models.base import BaseModel
+from CQA.models.base import BaseModel
 import os 
 import json
 from loguru import logger
 import torchvision.transforms as transforms
 from functools import partial
 from tqdm import tqdm
-from datasets import GenericDataset
-from utils.lfcbm_utils import get_target_model, save_activations, get_save_names
-from utils.args_utils import load_args
+from CQA.datasets import GenericDataset
+from CQA.utils.lfcbm_utils import get_target_model, save_activations, get_save_names
+from CQA.utils.args_utils import load_args
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
-from config import ACTIVATIONS_PATH
+from CQA.config import ACTIVATIONS_PATH
 from PIL import Image
 try:
     from torchvision.transforms import InterpolationMode
@@ -193,7 +193,7 @@ class LABO(BaseModel):
 
     def get_transform(self,split):
         # Must use the same transform used for training
-        import utils.clip as clip
+        import CQA.utils.clip as clip
         _, preprocess = clip.load(self.args.clip_name, device=self.args.device)
         return preprocess
     

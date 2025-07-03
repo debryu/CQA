@@ -5,15 +5,15 @@ import matplotlib.pyplot as plt
 import os
 from loguru import logger
 from torch.utils.data import DataLoader, TensorDataset
-from models.glm_saga.elasticnet import IndexedTensorDataset, IndexedDataset, glm_saga
-from utils.utils import log_train
-from utils.lfcbm_utils import get_targets_only
-from config import LABELS
-from datasets import get_dataset, GenericDataset
-from datasets.utils import compute_imbalance
-from utils.resnetcbm_utils import get_activations_and_targets
-from utils.args_utils import save_args
-from models.resnetcbm import RESNETCBM
+from CQA.models.glm_saga.elasticnet import IndexedTensorDataset, IndexedDataset, glm_saga
+from CQA.utils.utils import log_train
+from CQA.utils.lfcbm_utils import get_targets_only
+from CQA.config import LABELS
+from CQA.datasets import get_dataset, GenericDataset
+from CQA.datasets.utils import compute_imbalance
+from CQA.utils.resnetcbm_utils import get_activations_and_targets
+from CQA.utils.args_utils import save_args
+from CQA.models.resnetcbm import RESNETCBM
 from sklearn.svm import LinearSVC
 
 def train(args):

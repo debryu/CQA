@@ -1,8 +1,8 @@
-from datasets import GenericDataset
+from CQA.datasets import GenericDataset
 import torch
 from collections import defaultdict
 from tqdm import tqdm
-from config import DATASETS_FOLDER_PATHS
+from CQA.config import DATASETS_FOLDER_PATHS
 import os 
 from matplotlib import pyplot as plt
 from torchvision import transforms

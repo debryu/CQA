@@ -1,14 +1,14 @@
 import torch.nn as nn
 import torch
-from models.base import BaseModel
+from CQA.models.base import BaseModel
 import os 
 import json
 from loguru import logger
 from tqdm import tqdm
-import utils.clip as clip
-from utils.args_utils import load_args
+import CQA.utils.clip as clip
+from CQA.utils.args_utils import load_args
 import torchvision.transforms as transforms
-from utils.vlgcbm_utils import get_concept_dataloader, Backbone, BackboneCLIP, ConceptLayer, NormalizationLayer, FinalLayer
+from CQA.utils.vlgcbm_utils import get_concept_dataloader, Backbone, BackboneCLIP, ConceptLayer, NormalizationLayer, FinalLayer
 from functools import partial
 
 class _Model(torch.nn.Module):

@@ -1,11 +1,11 @@
 from loguru import logger
 import os, traceback
-from config import SAVED_MODELS_FOLDER
-from models import get_model
-from config import SAVED_MODELS_FOLDER, CONCEPTS_NOT_AVAILABLE
-from core.concept_quality import initialize_CQA
-from utils.args_utils import load_args
-from utils.utils import set_seed
+from CQA.config import SAVED_MODELS_FOLDER
+from CQA.models import get_model
+from CQA.config import SAVED_MODELS_FOLDER, CONCEPTS_NOT_AVAILABLE
+from CQA.core.concept_quality import initialize_CQA
+from CQA.utils.args_utils import load_args
+from CQA.utils.utils import set_seed
 
 import shutil
 import copy

@@ -5,9 +5,9 @@ import os
 import json
 from loguru import logger
 from tqdm import tqdm
-import utils.clip as clip
-from utils.args_utils import load_args
-from models.base import BaseModel
+import CQA.utils.clip as clip
+from CQA.utils.args_utils import load_args
+from CQA.models.base import BaseModel
 
 class _Model(torch.nn.Module):
     def __init__(

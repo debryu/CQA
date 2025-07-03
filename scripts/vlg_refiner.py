@@ -1,4 +1,4 @@
-from datasets import GenericDataset
+from CQA.datasets import GenericDataset
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt    
 import json
