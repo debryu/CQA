@@ -2,10 +2,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from utils.temp_hinton import hinton
+from CQA.utils.temp_hinton import hinton
 import pickle
 from loguru import logger
-from config import CONCEPT_SETS
+from CQA.config import CONCEPT_SETS
 
 VOCAB = {
     'betaglancenet': 'BGN',
@@ -117,9 +117,11 @@ CHESTMNIST_GROUND_TRUTH = [
   "Hernia"
 ]
 
+
+CONCEPT_SETS['cub'] = "/mnt/cimec-storage6/users/nicola.debole/home/CQA/data/concepts/cub/cub_improved_concepts.txt"
 with open(CONCEPT_SETS['cub']) as f:
         cub_concepts = f.read().split("\n")
-
+    
 GROUND_TRUTH_CONCEPTS = {
     "celeba": CELEBA_GROUND_TRUTH,
     "shapes3d": SHAPES3D_GROUND_TRUTH,

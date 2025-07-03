@@ -1,4 +1,4 @@
-from metrics.dci_framework import _compute_dci
+from CQA.metrics.dci_framework import _compute_dci
 
 def DCI_wrapper(representation_train,concept_train,representation_val,concept_val, level = 'INFO'):
   '''

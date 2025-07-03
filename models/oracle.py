@@ -5,15 +5,13 @@ import os
 import json
 from loguru import logger
 from tqdm import tqdm
-import utils.clip as clip
-from utils.args_utils import load_args
-from models.base import BaseModel
-from models.resnetcbm import _Model as ResNet_Model
+from CQA.models.base import BaseModel
+from CQA.models.resnetcbm import _Model as ResNet_Model
 from torch.utils.data import DataLoader
-import scripts.utils
-from datasets import GenericDataset
-from config import LLM_GENERATED_ANNOTATIONS
-from config import SPLIT_INDEXES
+import CQA.scripts.utils as scripts
+from CQA.datasets import GenericDataset
+from CQA.config import LLM_GENERATED_ANNOTATIONS
+from CQA.config import SPLIT_INDEXES
 
 
 class ORACLE(BaseModel):
@@ -22,7 +20,6 @@ class ORACLE(BaseModel):
         self.load_dir = args.load_dir
         # Call the model
         self.model = ResNet_Model(args)
-        
         # Update the args
         self.args = args
 
@@ -45,7 +42,7 @@ class ORACLE(BaseModel):
             used_indexes = SPLIT_INDEXES[f"{dataset_base}_{split}"]
             concepts = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{dataset_base}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth"), weights_only=True) 
             args = {"original_ds":gt_data, "train_concepts":concepts}
-            oracle_data = scripts.utils.AnnotatedDataset(**args)
+            oracle_data = scripts.AnnotatedDataset(**args)
             if split == 'train':
                 return DataLoader(oracle_data, batch_size = self.args.batch_size, shuffle = True)
             else:

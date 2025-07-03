@@ -3,7 +3,7 @@ import sys
 from loguru import logger
 import datetime
 
-from core.eval_models import CQ_Analysis
+from CQA.core.eval_models import CQ_Analysis
 #TODO: Fix DCI 235hudhf train and test error
 #TODO: Set -model argparser so that it can be used to load the model
 #TODO: Implement vlgcbm_utils asdgteyt34tdfs for plotting annotations

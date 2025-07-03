@@ -3,12 +3,12 @@ from loguru import logger
 import torch
 import random
 from torch.utils.data import DataLoader, TensorDataset
-from models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
+from CQA.models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
 from tqdm import tqdm
 
-from utils.lfcbm_utils import cos_similarity_cubed_single, save_activations, get_save_names, get_targets_only
-from datasets import get_dataset
-from config import folder_naming_convention, ACTIVATIONS_PATH, LABELS
+from CQA.utils.lfcbm_utils import cos_similarity_cubed_single, save_activations, get_save_names, get_targets_only
+from CQA.datasets import get_dataset
+from CQA.config import folder_naming_convention, ACTIVATIONS_PATH, LABELS
 
 def train(args):
     if not os.path.exists(args.save_dir):

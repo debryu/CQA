@@ -2,14 +2,14 @@ import os
 import torch
 from torchvision import datasets, transforms, models
 from pytorchcv.model_provider import get_model as ptcv_get_model
-import utils.clip as clip
+import CQA.utils.clip as clip
 import math
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from datasets import get_dataset
+from CQA.datasets import get_dataset
 from loguru import logger
 from functools import partial
-from utils.utils import get_resnet_imagenet_preprocess
+from CQA.utils.utils import get_resnet_imagenet_preprocess
 
 PM_SUFFIX = {"max":"_max", "avg":""}
 

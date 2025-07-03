@@ -10,8 +10,8 @@ import pandas as pd
 from torchvision.datasets.utils import download_url
 from loguru import logger
 from PIL import Image
-from datasets.utils import create_dataset
-from utils.utils import download_image
+from CQA.datasets.utils import create_dataset
+from CQA.utils.utils import download_image
 import traceback
 import pickle
 

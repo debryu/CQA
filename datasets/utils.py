@@ -4,7 +4,7 @@ import h5py
 import numpy as np
 import torch
 import os
-from utils.utils import plot_examples, one_hot_concepts
+from CQA.utils.utils import plot_examples, one_hot_concepts
 '''
 May be useful
 def compute_concept_frequencies(dataset:str, split:str = 'train'):

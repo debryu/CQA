@@ -3,7 +3,7 @@ from PIL import Image
 import io
 from loguru import logger
 from tqdm import tqdm
-from config import CLASSES, CONCEPT_SETS
+from CQA.config import CLASSES, CONCEPT_SETS
 import torch
 import pickle
 import os

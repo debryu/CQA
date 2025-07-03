@@ -9,7 +9,7 @@ trainers = {}
 last_layer_trainers = {}
 for model in _get_all_trainers():
   logger.debug(f"Loading training script for model {model}")
-  mod = importlib.import_module(f"models.training.{model}")
+  mod = importlib.import_module(f"CQA.models.training.{model}")
   trainers[model] = getattr(mod, "train")
   last_layer_trainers[model] = getattr(mod, "train_last_layer")
 

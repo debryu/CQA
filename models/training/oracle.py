@@ -3,15 +3,14 @@ from loguru import logger
 import torch
 import copy
 import random
-from torch.utils.data import DataLoader, TensorDataset
-from models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import torchvision.transforms as transforms
 import numpy as np
-from datasets import get_dataset, classes
-from config import folder_naming_convention, ACTIVATIONS_PATH, CONCEPT_SETS, LLM_GENERATED_ANNOTATIONS
-from utils.llamaoracle_utils import query_llama, unify_pickles
-from models.training.resnetcbm import train as train_cbm
+from CQA.datasets import get_dataset, classes
+from CQA.config import folder_naming_convention, ACTIVATIONS_PATH, CONCEPT_SETS, LLM_GENERATED_ANNOTATIONS
+from CQA.utils.llamaoracle_utils import query_llama, unify_pickles
+from CQA.models.training.resnetcbm import train as train_cbm
 
 def check_content(folder, indexes):
     logger.debug(f"Checking content of {folder} from {indexes[0]} to {indexes[1]}")

@@ -2,20 +2,20 @@ from torchvision import models
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from pytorchcv.model_provider import get_model as ptcv_get_model
 import sys
-from datasets import GenericDataset
+from CQA.datasets import GenericDataset
 from typing import Optional, Tuple
 import torch
 import wandb
 from tqdm import tqdm
-import utils.clip as clip
-from utils.utils import get_resnet_imagenet_preprocess
+import CQA.utils.clip as clip
+from CQA.utils.utils import get_resnet_imagenet_preprocess
 import os
 import json
 import numpy as np
 from loguru import logger
 from functools import partial
-from config import LABELS
-from models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
+from CQA.config import LABELS
+from CQA.models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
 
 BACKBONE_ENCODING_DIMENSION = {
     "resnet18_cub": 512,

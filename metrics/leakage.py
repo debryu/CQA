@@ -1,19 +1,19 @@
 import torch
 from loguru import logger
 import torch.nn.functional as F
-from models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
+from CQA.models.glm_saga.elasticnet import IndexedTensorDataset, glm_saga
 from torch.utils.data import TensorDataset, random_split, Subset
 import numpy as np
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 import copy
-from config import CONCEPT_SETS
+from CQA.config import CONCEPT_SETS
 from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report
 import sklearn
 from sklearn.svm import LinearSVC
-from datasets import GenericDataset
-from utils.utils import set_seed
+from CQA.datasets import GenericDataset
+from CQA.utils.utils import set_seed
 import os
 import pickle
 
