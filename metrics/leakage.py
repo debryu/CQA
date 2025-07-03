@@ -464,8 +464,6 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
     
     gt_concepts = torch.stack(gt_concepts, dim=0)
     #print(gt_concepts.shape)
-    gt_concepts = torch.stack(gt_concepts, dim=0)
-    #print(gt_concepts.shape)
     gt_labels = torch.tensor(gt_labels)
     #print(gt_labels.shape)
     
