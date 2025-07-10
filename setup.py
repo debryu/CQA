@@ -20,5 +20,6 @@ setup(
         "ftfy",
         "regex",
         "ollama",
+        "seaborn",
         ],  
 )
