@@ -1,0 +1,112 @@
+dagger beak
+hooked seabird beak
+all-purpose beak
+cone beak
+brown wing
+grey wing
+yellow wing
+black wing
+white wing
+buff wing
+brown upperparts
+grey upperparts
+yellow upperparts
+black upperparts
+white upperparts
+buff upperparts
+brown underparts
+grey underparts
+yellow underparts
+black underparts
+white underparts
+buff underparts
+solid breast
+striped breast
+multi-colored breast
+brown back
+grey back
+yellow back
+black back
+white back
+buff back
+notched tail
+brown upper-tail
+grey upper-tail
+black upper-tail
+white upper-tail
+buff upper-tail
+eyebrow head
+plain head
+brown breast
+grey breast
+yellow breast
+black breast
+white breast
+buff breast
+grey throat
+yellow throat
+black throat
+white throat
+buff throat
+black eye
+beak length about the same as head
+beak length shorter than head
+blue forehead
+brown forehead
+grey forehead
+yellow forehead
+black forehead
+white forehead
+brown under-tail
+grey under-tail
+black under-tail
+white under-tail
+buff under-tail
+brown nape
+grey nape
+yellow nape
+black nape
+white nape
+buff nape
+brown belly
+grey belly
+yellow belly
+black belly
+white belly
+buff belly
+rounded wings
+pointed wings
+size small
+size medium
+very small size
+duck-like
+perching-like
+solid back
+striped back
+multi-colored back
+solid tail
+striped tail
+multi-colored tail
+solid belly
+brown primary color
+grey primary color
+yellow primary color
+black primary color
+white primary color
+buff primary color
+grey leg
+black leg
+buff leg
+grey beak
+black beak
+buff beak
+blue crown
+brown crown
+grey crown
+yellow crown
+black crown
+white crown
+solid wing
+spotted wing
+striped wing
+multi-colored wing

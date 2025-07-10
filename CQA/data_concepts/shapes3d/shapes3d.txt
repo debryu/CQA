@@ -1,0 +1,42 @@
+red floor
+orange floor
+yellow floor
+green floor
+lime floor
+azure floor
+blue floor
+navy blue floor
+purple floor
+pink floor
+red wall
+orange wall
+yellow wall
+green wall
+lime wall
+azure wall
+blue wall
+navy blue wall
+purple wall
+pink wall
+red object
+orange object
+yellow object
+green object
+lime object
+azure object
+blue object
+navy blue object
+purple object
+pink object
+miniscule object
+very small object
+small object
+medium size object
+slightly big object
+big object
+very big object
+enormous object
+cube shaped object
+cylinder shaped object
+sphere shaped object
+pill shaped object

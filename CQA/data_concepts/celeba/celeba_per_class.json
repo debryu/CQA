@@ -1,0 +1,21 @@
+{
+  "female": [
+    "Bangs",
+    "Big Lips",
+    "Heavy Makeup",
+    "No Beard",
+    "Rosy Cheeks",
+    "Wearing Earrings",
+    "Wearing Lipstick"
+  ],
+  "male": [
+    "5 o Clock Shadow",
+    "Bald",
+    "Goatee",
+    "Mustache",
+    "Receding Hairline",
+    "Sideburns",
+    "Wearing Necktie"
+  ]
+  
+}
