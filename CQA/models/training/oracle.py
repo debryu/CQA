@@ -69,7 +69,8 @@ def create_or_load_oracle_ds(args):
         logger.debug(f"Checking if {os.path.join(LLM_GENERATED_ANNOTATIONS,f'{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth')} exists")
         if os.path.exists(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth")):
             # Load
-            logger.debug(f"Loading {os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth")}")
+            fpath = os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth")
+            logger.debug(f"Loading {fpath}")
             concepts_dict[split] = torch.load(os.path.join(LLM_GENERATED_ANNOTATIONS,f"{args.dataset}_{split}_{used_indexes[0]}_{used_indexes[1]}.pth"), weights_only=True) 
         else:
             missing = check_content(current_folder, used_indexes)
