@@ -124,7 +124,7 @@ class GenericDataset(torch.utils.data.Dataset):
       weights = self.total_samples/(label_occurrencies*n_classes)
       return weights
 
-    def get_occurrencies(self) -> tuple[torch.Tensor,dict]:
+    def get_occurrencies(self) -> Tuple[torch.Tensor,dict]:
       concept_occ = torch.zeros(self.n_concepts)
       labels = {}
       for sample in self.dataset:
