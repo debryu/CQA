@@ -5,7 +5,7 @@ import torch
 from loguru import logger
 import json
 import os
-from typing import List
+from typing import List, Tuple
 classes = {}
 # Get all classes from the module
 for name, cls in inspect.getmembers(dataset_classes, inspect.isclass):
@@ -112,7 +112,7 @@ class GenericDataset(torch.utils.data.Dataset):
         p_w.append(((self.total_samples-self.concept_occurrencies[i])/(self.concept_occurrencies[i])).item())
       return p_w
     
-    def _compute_concept_weights_tuple(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def _compute_concept_weights_tuple(self) -> Tuple[torch.Tensor, torch.Tensor]:
       weights_class0 = self.total_samples/((self.total_samples-self.concept_occurrencies)*2)
       weights_class1 = self.total_samples/(self.concept_occurrencies*2)
       return (weights_class0, weights_class1)
