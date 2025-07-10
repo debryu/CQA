@@ -15,5 +15,6 @@ setup(
         "h5py",
         "matplotlib",
         "wandb",
+        "setproctitle",
         ],  
 )
