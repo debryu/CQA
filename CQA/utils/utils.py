@@ -8,6 +8,7 @@ import wandb
 import random
 import os, requests
 from urllib.parse import urlparse
+from typing import List
 
 def set_seed(seed):
     random.seed(seed)
@@ -30,7 +31,7 @@ def get_resnet_imagenet_preprocess():
     )
     return preprocess
 
-def get_concept_names(file_path:str)->list[str]:
+def get_concept_names(file_path:str)->List[str]:
     with open(file_path) as f:
         concepts = f.read().split("\n")
     return concepts
