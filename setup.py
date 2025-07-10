@@ -19,5 +19,6 @@ setup(
         "pytorchcv",
         "ftfy",
         "regex",
+        "ollama",
         ],  
 )
