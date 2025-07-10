@@ -16,5 +16,8 @@ setup(
         "matplotlib",
         "wandb",
         "setproctitle",
+        "pytorchcv",
+        "ftfy",
+        "regex",
         ],  
 )
