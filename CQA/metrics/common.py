@@ -11,6 +11,7 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
+from typing import List
 
 '''
 Current output:
@@ -109,7 +110,7 @@ def get_conceptWise_metrics(output, model_args, main_args, threshold, name = '',
             f'{name}avg_concept_f1': sum(concept_f1)/len(concept_f1),
             f'{name}concept_f1':concept_f1}
 
-def get_metrics(output, requested:list[str]):
+def get_metrics(output, requested:List[str]):
   metrics = []
   for metric in requested:
     if metric == 'classification_report':
