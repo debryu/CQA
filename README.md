@@ -30,18 +30,19 @@ conda create -n vlmcbm python=3.12
 ```
 conda activate vlmcbm
 ```
-2. Install the Pytorch that best fits your hardware.
-3. Install the requirements based on your OS:
+2. Install the CQA library
 ```
-pip install -r requirements_windows.txt
-```
-or
-```
-pip install -r requirements_linux.txt
+pip install -e .
 ```
 
-4. Customize your ```config.py``` and set the correct paths if you are not using the default ones.
+4. Customize your ```config.py``` accordingly to your preferences. Set the correct paths if you are not using the default ones.
 ## Usage
+First move into the CQA folder  
+```
+cd CQA
+```
+I.E. when running training/evaluations you need to be in this path ```./CQA/CQA```.
+
 #### Train
 To train a simple Concept Bottleneck Model use:
 ```
@@ -57,7 +58,7 @@ Commands to train different models are available in ```experiments```
 #### Test
 To evaluate a model run:
 ```
-python main.py -folder <YOUR MODEL FOLDER> -all
+python main.py -load_dir <YOUR MODEL FOLDER> -all
 ```
 # Sources
 
