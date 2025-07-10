@@ -4,7 +4,7 @@
   
   <div align="center">
 	  Researchers have recently proposed novel architectures that replace manual annotations with weak supervision from foundation models. It is however unclear what is the impact on the quality of the learned concepts. To answer this question, we put various models to the test, analyzing their learned concepts empirically using a selection of significant metrics.
-	  <img src="prev.jpg" alt="preview" width="700" height="300">
+	  <img src="CQA/prev.jpg" alt="preview" width="700" height="300">
   </div>
 
  <div align="center">
