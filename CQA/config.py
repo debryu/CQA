@@ -21,11 +21,11 @@ DATASETS_FOLDER_PATHS = {
 }
 
 CONCEPT_SETS = {
-  "root":"./data/concepts/",
-  "celeba":"./data/concepts/celeba/handmade.txt",
-  "shapes3d":"./data/concepts/shapes3d/shapes3d.txt",
-  "cifar10": "./data/concepts/cifar10/cifar10_filtered.txt",
-  "cub":"./data/concepts/cub/cub_improved_concepts.txt",
+  "root":"./CQA/data/concepts/",
+  "celeba":"./CQA/data/concepts/celeba/handmade.txt",
+  "shapes3d":"./CQA/data/concepts/shapes3d/shapes3d.txt",
+  "cifar10": "./CQA/data/concepts/cifar10/cifar10_filtered.txt",
+  "cub":"./CQA/data/concepts/cub/cub_improved_concepts.txt",
 }
 
 LLM_GENERATED_ANNOTATIONS = "./data/llava-phi3_annotations"
