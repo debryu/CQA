@@ -5,19 +5,18 @@ __pycache__/
 *.zip
 *.pkl
 *.png
-CQA/data
-CQA/saved_models
-CQA/paper_models
-CQA/grid_models
-CQA/ordered_models
-CQA/models/VLG/annotations
-CQA/models/VLG/saved_models
-CQA/models/LFCBM/saved_models
-CQA/models/LABO/saved_models
-CQA/src
-CQA/rebuttal_models
-CQA/config
-CQA/config.py
+data
+saved_models
+paper_models
+grid_models
+ordered_models
+models/VLG/annotations
+models/VLG/saved_models
+models/LFCBM/saved_models
+models/LABO/saved_models
+rebuttal_models
+config
+config.py
 # Wandb
 wandb/
 
