@@ -14,10 +14,10 @@ ACTIVATIONS_PATH = {
 }
 
 DATASETS_FOLDER_PATHS = {
-  "celeba":"./data/celeba_manual_download" ,
-  "shapes3d":"./data/shapes3d" ,
+  "celeba":"/mnt/cimec-storage6/shared/cv_datasets/celeba_manual_download" ,
+  "shapes3d":"/mnt/cimec-storage6/shared/cv_datasets/cub" ,
   #"cifar10":"/mnt/cimec-storage6/shared/cv_datasets/cifar10",
-  "cub":"./data/cub/"
+  "cub":"/mnt/cimec-storage6/shared/cv_datasets/shapes3d"
 }
 
 CONCEPT_SETS = {
