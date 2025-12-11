@@ -1,39 +1,39 @@
-5_o_Clock_Shadow
-Arched_Eyebrows
+5 o Clock_Shadow
+Arched Eyebrows
 Attractive
-Bags_Under_Eyes
+Bags Under Eyes
 Bald
 Bangs
-Big_Lips
-Big_Nose
-Black_Hair
-Blond_Hair
+Big Lips
+Big Nose
+Black Hair
+Blond Hair
 Blurry
-Brown_Hair
-Bushy_Eyebrows
+Brown Hair
+Bushy Eyebrows
 Chubby
-Double_Chin
+Double Chin
 Eyeglasses
 Goatee
-Gray_Hair
-Heavy_Makeup
-High_Cheekbone
-Mouth_Slightly_Open
+Gray Hair
+Heavy Makeup
+High Cheekbone
+Mouth Slightly Open
 Mustache
-Narrow_Eyes
-No_Beard
-Oval_Face
-Pale_Skin
-Pointy_Nose
-Receding_Hairline
-Rosy_Cheeks
+Narrow Eyes
+No Beard
+Oval Face
+Pale Skin
+Pointy Nose
+Receding Hairline
+Rosy Cheeks
 Sideburns
 Smiling
-Straight_Hair
-Wavy_Hair
-Wearing_Earrings
-Wearing_Hat
-Wearing_Lipstick
-Wearing_Necklace
-Wearing_Necktie
+Straight Hair
+Wavy Hair
+Wearing Earrings
+Wearing Hat
+Wearing Lipstick
+Wearing Necklace
+Wearing Necktie
 Young

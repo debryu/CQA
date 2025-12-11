@@ -11,7 +11,7 @@ from CQA.utils.utils import set_seed
 from loguru import logger
 from sklearn.metrics import classification_report as cr
 from CQA.metrics.common import get_conceptWise_metrics, compute_AUCROC_concepts
-from CQA.metrics.leakage import leakage_collapsing, auto_leakage
+from CQA.metrics.leakage import leakage_collapsing, auto_leakage, deep_leakage
 from CQA.utils.eval_models import train_LR_on_concepts
 from sklearn.ensemble import RandomForestClassifier
 from CQA.metrics.ois import oracle_impurity_score
@@ -69,6 +69,13 @@ class CONCEPT_QUALITY():
   def eval():
     pass
 
+  def save_predictions(self):
+    torch.save(self.output['labels_gt'].detach().cpu(), f"{self.model.args.load_dir}/labels_gt.pth")
+    print(self.output['labels_pred'].detach().cpu()[4])
+    torch.save(self.output['labels_pred'].argmax(axis=1).detach().cpu(), f"{self.model.args.load_dir}/labels_pred.pth")
+    torch.save(self.output['concepts_gt'].detach().cpu(), f"{self.model.args.load_dir}/concepts_gt.pth")
+    torch.save(self.output['concepts_pred'].detach().cpu(), f"{self.model.args.load_dir}/concepts_pred.pth")
+
   def get_classification_report(self):
     y_true = self.output['labels_gt'] 
     y_pred = self.output['labels_pred'].argmax(axis=1)
@@ -91,8 +98,27 @@ class CONCEPT_QUALITY():
     self.leakage = lkg
     self.metrics.update({'leakage': self.leakage})
     return lkg
+  
+  def compute_leakage_deep(self):
+    ############################################
+    ##                LEAKAGE                 ##
+    ############################################
+    num_labels = self.output_train['labels_pred'].shape[1]
+    # (dataset:str,output_train, output_val, output_test, n_classes, args, epochs = 20, batch_size=64, device='cuda', hidden_size=1000, n_layers=3):
+    lkg,ordering = deep_leakage(self.args.dataset, self.output_train, self.output_val, self.output, n_classes=num_labels, args=self.main_args)
+    self.deepleakage = lkg
+    self.metrics.update({'deepleakage': self.deepleakage})
+    #new_ordering = [35, 18, 8, 10, 27, 23, 2, 0, 19, 7, 5, 25, 1, 33, 11, 26, 29, 20, 30, 38, 28, 14, 31, 32, 15, 9, 24, 12, 17, 4, 13, 16, 21, 37, 34, 22, 3, 6, 36]  # Ordering with leakage
+    #new_ordering = [17, 34, 38, 36, 21, 13, 12, 22, 32, 37, 3, 4, 6, 24, 20, 15, 14, 10, 31, 5, 9, 26, 28, 30, 8, 16, 7, 29, 2, 11, 19, 33, 1, 27, 25, 0, 23, 18, 35]  # Ordering with informativeness
+    #lkg,ordering = deep_leakage(self.args.dataset, self.output_train, self.output_val, self.output, n_classes=num_labels, args=self.main_args, ordering=new_ordering, epoch = 999)
+    #asd
+    for e in range(1,30):
+      lkg,ordering = deep_leakage(self.args.dataset, self.output_train, self.output_val, self.output, n_classes=num_labels, args=self.main_args, ordering=ordering, epoch = e)
+    
+    return lkg
     
   def compute_ois(self):
+    logger.debug("Computing ois")
     ############################################
     ##                OIS                     ##
     ############################################
@@ -139,8 +165,6 @@ class CONCEPT_QUALITY():
     # Always compute auc roc on raw concept predictions, this is handled inside the function
     a = compute_AUCROC_concepts(_output, self.model.args)
     self.metrics.update(a)
-    
-
     self.save()
     return m
   
@@ -183,6 +207,8 @@ class CONCEPT_QUALITY():
         pass
     with open(os.path.join(self.model.args.load_dir, "metrics.txt"), "w") as f:
       json.dump(serializable_dict, f, indent=2)
+      
+    #print(serializable_dict)
 
   def __str__(self):
     text = ''

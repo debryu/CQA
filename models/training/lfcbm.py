@@ -18,7 +18,8 @@ def train(args):
     if not os.path.exists(args.concept_set):
         raise FileNotFoundError(f"Concept set {args.concept_set} does not exist")
     
-    save_name = os.path.join(args.save_dir,folder_naming_convention(args))
+    #save_name = os.path.join(args.save_dir,folder_naming_convention(args))
+    save_name = args.save_dir
     args.save_dir = save_name
     os.makedirs(save_name, exist_ok=True)
     # Set the activation directory inside the save directory
@@ -110,7 +111,7 @@ def train(args):
 
         text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()[highest>args.clip_cutoff]
         text_features /= torch.norm(text_features, dim=1, keepdim=True)
-    
+        
         clip_features = image_features @ text_features.T                # This is the actual P, removing the concepts that are not activating highly
         del image_features, text_features
     

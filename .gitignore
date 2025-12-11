@@ -10,6 +10,7 @@ saved_models
 paper_models
 grid_models
 ordered_models
+ICMLmodels
 models/VLG/annotations
 models/VLG/saved_models
 models/LFCBM/saved_models

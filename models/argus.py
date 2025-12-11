@@ -5,13 +5,15 @@ from loguru import logger
 from tqdm import tqdm
 import torchvision.transforms as transforms
 from functools import partial
+from CQA.datasets import GenericDataset
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 from PIL import Image
+from torch.utils.data import DataLoader
 try:
     from torchvision.transforms import InterpolationMode
     BICUBIC = InterpolationMode.BICUBIC
 except ImportError:
-    BICUBIC = Image.BICUBIC # type:ignore
+    BICUBIC = Image.BICUBIC
 
 from CQA.utils.resnetcbm_utils import PretrainedResNetModel
 
@@ -21,8 +23,6 @@ def get_backbone_function(model, x):
 class _Model(torch.nn.Module):
     def __init__(self, args): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
         super().__init__()
-        args.unfreeze = 0
-        print(args.unfreeze)
         self.backbone = PretrainedResNetModel(args)
         self.final = torch.nn.Linear(in_features = args.num_c, out_features=args.num_classes).to(args.device)
         self.args = args
@@ -32,7 +32,8 @@ class _Model(torch.nn.Module):
         probs = torch.nn.functional.sigmoid(concepts)
         # Generate random preds with dimension batch_size x 2
         preds = self.final(concepts)
-        out_dict = {'unnormalized_concepts':concepts, 'concepts':concepts, 'preds':preds, 'concept_probs':probs}
+        # The concepts are now the probs since we are approximating a GP
+        out_dict = {'unnormalized_concepts':concepts, 'concepts':probs, 'preds':preds, 'concept_probs':probs}
         return out_dict
 
     def load(self):
@@ -43,12 +44,6 @@ class _Model(torch.nn.Module):
         self.final.load_state_dict({"weight":W_g, "bias":b_g})
         return 
     
-    def eval(self):
-        self.backbone = self.backbone.eval()
-        self.backbone.train(False)
-        self.final = self.final.eval()
-        return self
-
     def get_loss(self, args):
         return NotImplementedError('No loss implemented')
         
@@ -57,7 +52,7 @@ class _Model(torch.nn.Module):
         self.opt = torch.optim.Adam(self.parameters(), args.lr)
 
 
-class RESNETCBM(BaseModel):
+class ARGUS(BaseModel):
     def __init__(self, args):
         super().__init__(self, args)
         # Update the load_dir based on the model
@@ -67,6 +62,12 @@ class RESNETCBM(BaseModel):
     def train(self, loader):
         pass
 
+    def get_loader(self, split):
+        dataset_name = self.args.dataset
+        dataset_base = dataset_name.split("_")[0]
+        transform = self.get_transform(split=split)
+        gt_data = GenericDataset(dataset_base, split = split, transform = transform)
+        return DataLoader(gt_data, batch_size=self.args.batch_size, shuffle=False)
     '''
     def get_transform(self):
         t = transforms.Compose(

@@ -6,6 +6,8 @@ import datetime
 import setproctitle, socket, uuid
 from core.train_models import run
 import json
+import torch.multiprocessing as mp
+import copy
 
 # TODO: add seed for reproducibility
 # TODO: change llamaoracle name to oracle
@@ -22,7 +24,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Dynamic flags based on initial flag value.")
     
     # Add the primary flag
-    parser.add_argument('-model', required=True, type=str, choices=['lfcbm', 'resnetcbm','oracle','vlgcbm','labo'], help="Specify the model to train.")
+    parser.add_argument('-model', required=True, type=str, choices=['lfcbm', 'resnetcbm','oracle','vlgcbm','labo','argus','cbmlite','argus_logits'], help="Specify the model to train.")
     parser.add_argument('-logger', type=str, default="DEBUG", help="Logging level", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     parser.add_argument("-dataset", type=str, default="celeba", help="Dataset to use")
     parser.add_argument("-config", type=str, default=None, help="Path to a config file for setting all the parameters in a json file")
@@ -32,7 +34,7 @@ def parse_args():
     parser.add_argument("-resume", type=str, default=None, help="Path to a model to resume training")
     # Parse known arguments to determine the value of --model
     args, remaining_args = parser.parse_known_args()
-    
+    script_args = copy.deepcopy(args)
     ''' Set up logger'''
     logger.remove()
     def my_filter(record):
@@ -65,11 +67,15 @@ def parse_args():
     args.date = datetime.datetime.now().strftime("%Y_%m_%d")
     args.conf_host = socket.gethostname()
     args.conf_jobnum = str(uuid.uuid4())
+    if script_args.save_dir is not None:
+        args.save_dir = script_args.save_dir
+        
     # set job name
     setproctitle.setproctitle('{}_{}_{}'.format( args.model, args.buffer_size if 'buffer_size' in args else 0, args.dataset))
     return args
 
 if __name__ == "__main__":
+    mp.set_start_method('spawn', force=True)
     start = datetime.datetime.now()
     args = parse_args()
     run(args)

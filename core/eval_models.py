@@ -99,23 +99,33 @@ def eval_model(arguments):
                     logger.error(traceback.format_exc())
             
         if (CQA.main_args.concept_metrics or CQA.main_args.all) and criteria_concept_metrics:
-            pass
             #if 'avg_concept_accuracy' not in CQA.metrics:
             CQA.concept_metrics()
             #CQA.save()
 
         if (CQA.main_args.leakage or CQA.main_args.all) and criteria_concept_metrics:
-            CQA.compute_leakage()
+            if CQA.main_args.leakage:
+                CQA.compute_leakage()
+                CQA.save()
+            else:
+                if not 'leakage' in CQA.metrics.keys():
+                    CQA.compute_leakage()
+                    CQA.save()
+        
+        if (CQA.main_args.deepleakage) and criteria_concept_metrics:
+            CQA.compute_leakage_deep()
             CQA.save()
         
         if (CQA.main_args.ois or CQA.main_args.all) and criteria_concept_metrics:
-            CQA.compute_ois()
-            CQA.save()
+            if not 'ois' in CQA.metrics.keys():    
+                CQA.compute_ois()
+                CQA.save()
             
         if (CQA.main_args.label_metrics or CQA.main_args.all) and criteria_label_metrics:
             if 'label_accuracy' not in CQA.metrics:
                 CQA.get_classification_report()
             print(CQA.classification_report)
+            CQA.save_predictions()
             #CQA.save()
             #CQA.metrics()
             #print(CQA.metrics())
@@ -124,6 +134,7 @@ def eval_model(arguments):
         if CQA.main_args.wandb:
             CQA.log_metrics()
             wandb.finish()
+        
         CQA.dump_metrics()
         CQA.save()
 

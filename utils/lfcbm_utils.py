@@ -277,6 +277,7 @@ def save_clip_image_features(model, dataset, save_name, batch_size=1000 , device
     return
 
 def save_clip_text_features(model, text, save_name, batch_size=1000):
+    print(text)
     logger.debug(f"Saving text features to {save_name}")
     if os.path.exists(save_name):
         return

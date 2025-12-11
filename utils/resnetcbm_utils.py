@@ -23,7 +23,8 @@ def get_activations_and_targets(model_class,dataset_name,split,args):
     concepts = [] 
     gt_concetps = []
     model = model_class.model
-    model.eval().to(args.device)
+    model = model.eval()
+    model = model.to(args.device)
     for i in tqdm(range(len(data)), desc='Running model'):
         img, c, label = data[i]
         label = label.long()

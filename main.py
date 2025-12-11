@@ -17,6 +17,7 @@ def main():
   parser.add_argument("-force", action="store_true", help="Force the computation from scratch")
   parser.add_argument("-all", action="store_true", help="Compute all possible metrics")
   parser.add_argument("-leakage", action="store_true", help="Compute leakage metrics")
+  parser.add_argument("-deepleakage", action="store_true", help="Compute deep leakage metrics")
   parser.add_argument("-ois", action="store_true", help="Compute ois metrics")
   parser.add_argument("-wandb", action="store_true", help="Logs on wandb")
   parser.add_argument("-dci", action="store_true", help="Compute DCI")

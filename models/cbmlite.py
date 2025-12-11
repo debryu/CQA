@@ -13,6 +13,8 @@ try:
 except ImportError:
     BICUBIC = Image.BICUBIC # type:ignore
 
+from CQA.datasets import GenericDataset
+from torch.utils.data import DataLoader
 from CQA.utils.resnetcbm_utils import PretrainedResNetModel
 
 def get_backbone_function(model, x):
@@ -21,8 +23,6 @@ def get_backbone_function(model, x):
 class _Model(torch.nn.Module):
     def __init__(self, args): #backbone_name, W_c, W_g, b_g, proj_mean, proj_std, device="cuda"):
         super().__init__()
-        args.unfreeze = 0
-        print(args.unfreeze)
         self.backbone = PretrainedResNetModel(args)
         self.final = torch.nn.Linear(in_features = args.num_c, out_features=args.num_classes).to(args.device)
         self.args = args
@@ -43,12 +43,6 @@ class _Model(torch.nn.Module):
         self.final.load_state_dict({"weight":W_g, "bias":b_g})
         return 
     
-    def eval(self):
-        self.backbone = self.backbone.eval()
-        self.backbone.train(False)
-        self.final = self.final.eval()
-        return self
-
     def get_loss(self, args):
         return NotImplementedError('No loss implemented')
         
@@ -57,13 +51,20 @@ class _Model(torch.nn.Module):
         self.opt = torch.optim.Adam(self.parameters(), args.lr)
 
 
-class RESNETCBM(BaseModel):
+class CBMLITE(BaseModel):
     def __init__(self, args):
         super().__init__(self, args)
         # Update the load_dir based on the model
         self.model = _Model(args)
         self.args = self.model.args
 
+    def get_loader(self, split):
+        dataset_name = self.args.dataset
+        dataset_base = dataset_name.split("_")[0]
+        transform = super().get_transform(split=split)
+        gt_data = GenericDataset(dataset_base, split = split, transform = transform)
+        return DataLoader(gt_data, batch_size=self.args.batch_size, shuffle=False)
+    
     def train(self, loader):
         pass
 

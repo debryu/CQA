@@ -1,7 +1,7 @@
 from loguru import logger
 import os
 from models.training import get_trainer, get_last_layer_trainer
-from config import SAVED_MODELS_FOLDER, folder_naming_convention
+from CQA.config import SAVED_MODELS_FOLDER, folder_naming_convention
 from utils.args_utils import save_args
 from utils.utils import set_seed
 from utils.args_utils import load_args
@@ -20,9 +20,16 @@ def run(args):
         return
     # Save folder
     folder_name = folder_naming_convention(args)
+    
     if args.save_dir is None:
-        args.save_dir = os.path.join(SAVED_MODELS_FOLDER[args.model],folder_name)
+        try:
+            args.save_dir = os.path.join(SAVED_MODELS_FOLDER[args.model],folder_name)
+        except:
+            os.makedirs("./saved_models", exist_ok=True)
+            args.save_dir = os.path.join("./saved_models",folder_name)
     logger.debug(f"Created folder: {args.save_dir}")
+    
+    args.save_dir = os.path.join(args.save_dir,folder_name)
     os.makedirs(args.save_dir, exist_ok=True)
     logger.info(f"Starting training model {args.model}")
     if args.seed:

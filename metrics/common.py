@@ -35,12 +35,30 @@ def auc_roc(X,y, model_args):
   y_preds = classifier.decision_function(X_test)
   # Compute precision-recall curve
   precision, recall, _ = precision_recall_curve(y_test, y_preds)
-
+  inv_precision, inv_recall, _ = precision_recall_curve(1-y_test, -y_preds)
   # Compute PR AUC
   pr_auc = auc(recall, precision)
+  inv_pr_auc = auc(inv_recall, inv_precision)
   logger.info(f"PR AUC: {pr_auc}")
+  logger.info(f"INV PR AUC: {inv_pr_auc}")
   #plt.show()
   return pr_auc
+
+def macro_auc(concept_predictions, concept_labels):
+  logger.debug("Macro-pr-auc function") 
+  
+  # Compute precision-recall curve
+  precision, recall, _ = precision_recall_curve(concept_labels, concept_predictions)
+  inv_precision, inv_recall, _ = precision_recall_curve(1-concept_labels, -concept_predictions)
+  
+  # Compute PR AUC
+  pr_auc = auc(recall, precision)
+  inv_pr_auc = auc(inv_recall, inv_precision)
+  logger.info(f"PR AUC: {pr_auc}")
+  logger.info(f"INV PR AUC: {inv_pr_auc}")
+  #plt.show()
+  return (pr_auc + inv_pr_auc)/2
+
 
 def compute_AUCROC_concepts(output,args):
     logger.debug("Computing AUC-ROC")
@@ -50,14 +68,16 @@ def compute_AUCROC_concepts(output,args):
     if not hasattr(args, 'num_c'):
       args.num_c = conc_pred.shape[1]
     
+    macro_pr_aucs = []
     auc_rocs = []
     for i in tqdm(range(args.num_c), desc="Computing AUC-ROC"):
       logger.info(f"Computing AUC-ROC for concept {i}")
       X = conc_pred[:,i].detach().cpu().numpy().reshape(-1,1)
       y = conc_gt[:,i].detach().cpu().numpy()
       auc_rocs.append(auc_roc(X,y, args))
+      macro_pr_aucs.append(macro_auc(X,y))
     
-    auc_dict = {'avg_concept_auc':np.mean(auc_rocs), 'concept_auc': auc_rocs}
+    auc_dict = {'avg_concept_auc':np.mean(auc_rocs), 'concept_auc': auc_rocs, 'macro_pr_auc': macro_pr_aucs, 'avg_macro_pr_auc': np.mean(macro_pr_aucs)}
     return auc_dict
 
 def get_conceptWise_metrics(output, model_args, main_args, threshold, name = '', dict_str='concepts_pred'):

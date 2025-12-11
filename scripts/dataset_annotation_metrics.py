@@ -14,7 +14,7 @@ import os
 import copy
 from tqdm import tqdm
 from matplotlib import pyplot as plt
-dataset = 'shapes3d'
+dataset = 'cub'
 device = 'cuda'
 seed = 42
 confidence_threshold = 0.10
@@ -439,6 +439,161 @@ def Clip():
     n_concepts = original_ds[0][1].shape[0]
     compute(loader, dataset, n_concepts=n_concepts, name='CLIP - LR on all')
 
+def ClipWithTest():
+    d_train = dataset + "_train"
+    clip_name = "ViT-B/16"
+    if dataset == 'cub':
+        c_set = os.path.join(concept_set,'cub_preprocess.txt')
+        f_layer = 'features.final_pool'
+        backb = 'resnet18_cub'
+    if dataset == 'celeba':
+        c_set = os.path.join(concept_set,'handmade.txt')
+        f_layer = 'layer4'
+        backb = 'clip_RN50'
+    if dataset == 'shapes3d':
+        c_set = os.path.join(concept_set,'shapes3d.txt')
+        f_layer = 'layer4'
+        backb = 'clip_RN50'
+        
+    target_save_name, clip_save_name, text_save_name = scrut.get_save_names(clip_name, backb, 
+                                            f_layer,d_train, c_set, "avg", activation_dir)
+    
+    d_test = dataset + "_test"
+    test_save_name, test_clip_save_name, test_text_save_name = scrut.get_save_names(clip_name, backb, 
+                                            f_layer,d_test, c_set, "avg", activation_dir)
+    
+    logger.debug(f"Target save name: {target_save_name}")
+    logger.debug(f"Clip save name: {clip_save_name}")
+    logger.debug(f"Text save name: {text_save_name}")
+
+    #load features
+    with torch.no_grad():
+        target_features = torch.load(target_save_name, map_location="cpu", weights_only=True).float()
+
+        image_features = torch.load(clip_save_name, map_location="cpu", weights_only=True).float()
+        image_features /= torch.norm(image_features, dim=1, keepdim=True)
+
+
+        text_features = torch.load(text_save_name, map_location="cpu", weights_only=True).float()
+        text_features /= torch.norm(text_features, dim=1, keepdim=True)
+        
+        clip_features = image_features @ text_features.T    
+        
+        # Use the test set as training (this because every other annotator is evaluated on train, so we use test to train the log regressor)
+        test_image_features = torch.load(test_clip_save_name, map_location="cpu", weights_only=True).float()
+        test_image_features /= torch.norm(test_image_features, dim=1, keepdim=True)
+
+
+        test_text_features = torch.load(test_text_save_name, map_location="cpu", weights_only=True).float()
+        test_text_features /= torch.norm(test_text_features, dim=1, keepdim=True)
+        
+        clip_train_features = test_image_features @ test_text_features.T    
+
+        del image_features, test_image_features
+    
+    #----------------- Without Training
+    cf = copy.deepcopy(clip_features)
+    probs = torch.nn.functional.sigmoid(cf)   
+    preds = (probs > 0.5).long()
+    clip_ds = scrut.ClipDataset(preds)
+    loader = torch.utils.data.DataLoader(clip_ds,batch_size=1,shuffle=False)
+    original_ds = GenericDataset(ds_name=dataset, split = 'train')
+    train_ds = GenericDataset(ds_name=dataset, split = 'test')  # As explained before, use test split to train
+    n_concepts = original_ds[0][1].shape[0]
+    '''
+    compute(loader, dataset, n_concepts=n_concepts, name='CLIP - raw')
+
+    #----------------- Training one param
+    cf = copy.deepcopy(clip_features)
+    targets = []
+    for i in range(len(original_ds)):
+        _,concepts,_ = original_ds[i]
+        if not isinstance(concepts, torch.Tensor):
+            concepts = torch.tensor(concepts)
+        targets.append(concepts)
+    targets = torch.stack(targets, dim=0)
+    W,B = train_LR_global(cf,targets)
+    cf *= W
+    cf += B
+    #
+    probs = torch.nn.functional.sigmoid(cf)   
+    preds = (probs > 0.5).long()
+    clip_ds = scripts.utils.ClipDataset(preds)
+    loader = torch.utils.data.DataLoader(clip_ds,batch_size=1,shuffle=False)
+    original_ds = GenericDataset(ds_name=dataset, split = 'train')
+    n_concepts = original_ds[0][1].shape[0]
+    compute(loader, dataset, n_concepts=n_concepts, name='CLIP - one LR')
+    '''
+    #----------------- Training one param for each concept
+    cf = copy.deepcopy(clip_features)
+    targets = []
+    for i in range(len(train_ds)):
+        _,concepts,_ = train_ds[i]
+        if not isinstance(concepts, torch.Tensor):
+            concepts = torch.tensor(concepts)
+        targets.append(concepts)
+    targets = torch.stack(targets, dim=0)
+    orig_targets = []
+    for i in range(len(original_ds)):
+        _,concepts,_ = original_ds[i]
+        if not isinstance(concepts, torch.Tensor):
+            concepts = torch.tensor(concepts)
+        orig_targets.append(concepts)
+    orig_targets = torch.stack(orig_targets, dim=0)
+    
+    logger.info("Training Logistic Regression on All Concepts")
+    if dataset=='shapes3d':
+        W,B = train_LR_on_concepts_shapes3d(clip_train_features, targets)
+        print(W)
+    else:
+        W,B = train_LR_on_concepts(clip_train_features, targets)
+    
+    cf *= W # Apply the same transformatio to the train split embeddings
+    cf += B # Apply the same transformatio to the train split embeddings
+    #
+    
+    if dataset == 'shapes3d':
+        # Define chunk sizes (must sum to the tensor length)
+        concept_groups = [10, 10, 10, 8, 4]  # 10 for wall color, 10 background color, 10 object color, 8 sizes and 4 shapes
+
+        # Compute argmax for each chunk
+        argmax_indices = []
+        start = 0
+        for size in concept_groups:
+            chunk = cf[:,start:start + size]  # Extract the chunk
+            probs = torch.nn.functional.softmax(chunk, dim=1)
+            argmax_indices.append(torch.argmax(chunk,dim=1))  # Compute argmax and store it
+            print(argmax_indices)
+            start += size  # Move to the next chunk
+        preds = torch.zeros(orig_targets.shape)
+        start = 0
+        print(probs[0])
+        
+        preds = []
+        for sample in range(len(orig_targets)):
+            one_hot_concepts = []
+            # Construct the predicted concepts constrained on having only one active per concept group
+            for i, size in enumerate(concept_groups):
+                one_hot = torch.eye(size)
+                id = argmax_indices[i][sample]
+                #print(one_hot[id])
+                one_hot_concepts.append(one_hot[id])
+            one_hot_concepts = torch.cat(one_hot_concepts, dim=0)
+            preds.append(one_hot_concepts)
+            #print(one_hot_concepts)
+            #break
+        preds = torch.stack(preds, dim=0)
+        print(orig_targets[0])
+        print(orig_targets[0])
+    else:      
+        probs = torch.nn.functional.sigmoid(cf)      
+        preds = (probs > 0.5)
+    clip_ds = scrut.ClipDataset(preds.long())
+    loader = torch.utils.data.DataLoader(clip_ds,batch_size=1,shuffle=False)
+    original_ds = GenericDataset(ds_name=dataset, split = 'train')
+    n_concepts = original_ds[0][1].shape[0]
+    compute(loader, dataset, n_concepts=n_concepts, name='CLIP - LR on all')
+    
 def ClipAUC():
     d_train = dataset + "_train"
     clip_name = "ViT-B/16"
@@ -499,6 +654,9 @@ def ClipAUC():
 
 if __name__ == '__main__':
     
+    ClipWithTest()
+    input("Press enter to continue...")
+    
     rDINO = GDinoAUC()
     #input("Press enter to continue...")
     
@@ -507,6 +665,7 @@ if __name__ == '__main__':
 
     rCLIP = ClipAUC()
     #input("Press enter to continue...")
+    
     
     
     

@@ -6,9 +6,12 @@ import itertools
 import os
 from multiprocessing import Pool
 from loguru import logger
-
+import time
+SAVE_DIR = "./ICMLmodels"
 CUDA_VISIBLE_DEVICES = '1'
 vlg_run = {
+    "-save_dir": [SAVE_DIR],
+    
     # GRID SEARCH PARAMETERS
     "-cbl_epochs": [8,
                     ],
@@ -20,17 +23,21 @@ vlg_run = {
     "-model": ["vlgcbm"],
     "-dataset": [
                     "celeba",
-                    "shapes3d"
+                    "shapes3d",
+                    "dermamnist"
                 ],
+    # Only for dermamnist
+    "-annotation_dir": ["/mnt/cimec-storage6/users/nicola.debole/home/vlg-annotate/new_annotations"],
     "-cbl_optimizer": ["adam"],
     "-skip_concept_filter":[""],
     "-wandb":[""],
     #"-seed":["64","65","66","67","68"],
-    "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
+    "-seed":["42","43","44","45","46"],
     
 }
 
 vlg_run_cub = {
+    "-save_dir": [SAVE_DIR],
     # GRID SEARCH PARAMETERS
     "-cbl_epochs": [10,
                     ],
@@ -62,8 +69,10 @@ vlg_run_cub = {
     "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
 }
 resnetcbm_run = {
+    "-save_dir": [SAVE_DIR],
     # GRID SEARCH PARAMETERS
-    "-epochs": [20,
+    "-clip_name": ["ViT-L/14"],
+    "-epochs": [50,
                     ],
     "-unfreeze":[5],
     "-lr": [0.001],
@@ -75,13 +84,17 @@ resnetcbm_run = {
     "-model": ["resnetcbm"],
     "-dataset": [
                     "celeba",
-                    "shapes3d"
+                    "shapes3d",
+                    "dermamnist"
                 ],
-    "-wandb":[""],
+    # Only when using dermamnist
+    "-num_c": [7],
+    #"-wandb":[""],
     #"-seed":["64","65","66","67","68"],
-    "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
+    "-seed":["42","43","44","45","46"],
 }
 resnetcbm_run_cub = {
+    "-save_dir": [SAVE_DIR],
     # GRID SEARCH PARAMETERS
     "-epochs": [20,
                     ],
@@ -101,27 +114,30 @@ resnetcbm_run_cub = {
 }
 lfcbm_run = {
     # GRID SEARCH PARAMETERS
-    
+    "-save_dir": [SAVE_DIR],
 
     # FIXED PARAMETERS
     "-model": ["lfcbm"],
+    "-clip_name": ["ViT-L/14"],
     "-dataset": [
-                    "celeba",
-                    "shapes3d"
+                    #"celeba",
+                    #"shapes3d",
+                    "dermamnist"
                 ],
     "-wandb":[""],
     #"-seed":["64","65","66","67","68"],
-    "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
+    "-seed":["42","43","44","45","46"],
     "-clip_cutoff": [0.0],
     "-interpretability_cutoff":[0.0],
 }
 
 lfcbm_run_cub = {
     # GRID SEARCH PARAMETERS
-    
+    "-save_dir": [SAVE_DIR],
 
     # FIXED PARAMETERS
     "-model": ["lfcbm"],
+    
     "-dataset": [
                     "cub",
                 ],
@@ -136,22 +152,24 @@ lfcbm_run_cub = {
 
 labo_run = {
     # GRID SEARCH PARAMETERS
-    
+    "-save_dir": [SAVE_DIR],
 
     # FIXED PARAMETERS
     "-model": ["labo"],
+    "-clip_name": ["ViT-L/14"],
     "-dataset": [
                     "celeba",
-                    "shapes3d"
+                    "shapes3d",
+                    "dermamnist"
                 ],
     "-wandb":[""],
     #"-seed":["74","75","76","77","78"],
-    "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
+    "-seed":["42","43","44","45","46"],
 }
 
 labo_run_cub = {
     # GRID SEARCH PARAMETERS
-    
+    "-save_dir": [SAVE_DIR],
 
     # FIXED PARAMETERS
     "-model": ["labo"],
@@ -163,6 +181,7 @@ labo_run_cub = {
 
 oracle_run = {
     # GRID SEARCH PARAMETERS
+    "-save_dir": [SAVE_DIR],
     "-epochs": [20,
                     ],
     "-unfreeze":[5],
@@ -183,6 +202,7 @@ oracle_run = {
 
 oracle_test_run = {
     # GRID SEARCH PARAMETERS
+    "-save_dir": [SAVE_DIR],
     "-epochs": [20,
                     ],
     "-unfreeze":[5],
@@ -203,6 +223,7 @@ oracle_test_run = {
 
 oracle_test_run_cub = {
     # GRID SEARCH PARAMETERS
+    "-save_dir": [SAVE_DIR],
     "-epochs": [20, 40, 60, 80, 100],
     "-unfreeze":[0],
     "-lr": [0.001],
@@ -220,6 +241,7 @@ oracle_test_run_cub = {
 
 oracle_run_cub = {
     # GRID SEARCH PARAMETERS
+    "-save_dir": [SAVE_DIR],
     "-epochs": [20, 40, 60, 80, 100],
     "-unfreeze":[0],
     "-lr": [0.001],
@@ -235,7 +257,7 @@ oracle_run_cub = {
     "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
 }
 
-runs = [oracle_run_cub, labo_run_cub,lfcbm_run_cub,vlg_run_cub,resnetcbm_run_cub]
+runs = [resnetcbm_run]
 
 
 import os
@@ -250,6 +272,7 @@ for run in runs:
                         command += f" {combination[i]}"
         logger.info(f"Running: {command}")  # Print the command for debugging
         os.system(command)  # Runs as if manually executed in terminal
+        time.sleep(60)
 
 
 '''

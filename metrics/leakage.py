@@ -14,7 +14,7 @@ import sklearn
 from sklearn.svm import LinearSVC
 from CQA.datasets import GenericDataset
 from CQA.utils.utils import set_seed
-import os
+import os, json
 import pickle
 
 lg_scaler = 100
@@ -354,6 +354,7 @@ class LeakageSVM():
 
 def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, args, epochs = 20, batch_size=64, device='cuda', hidden_size=1000, n_layers=3):
     set_seed(args.eval_seed)
+    logger.debug("Computing leakage")
     #n_classes = output_test['labels_pred'].shape
     n_concepts = output_test['concepts_gt'].shape[1]
     # The values are in {0,1}, we want logits so need to apply the log. However this would result in -inf, inf, so we just 
@@ -470,7 +471,7 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
     #print(output_train['labels_gt'][:1000])    
     subs = torch.arange(len(output_train['concepts_gt']))  # Tensor: [0, 1, 2, ..., 9]
     # Select random indices
-    subs = torch.randperm(len(subs))[:2000]
+    subs = torch.randperm(len(subs))[:4000]
     observations = torch.cat((gt_concepts[subs,:].t(),gt_labels[subs].t().unsqueeze(dim=0)), dim=0)
     #print(observations)
     #print(observations.shape)
@@ -1068,6 +1069,293 @@ def auto_leakage(dataset:str,output_train, output_val, output_test, n_classes, a
         print(torch.topk(W_g[i], k = 2, largest=False))
         input("...")
     asd
+  
+def deep_leakage(dataset:str,output_train, output_val, output_test, n_classes, args, epoch = 0, batch_size=64, device='cuda', ordering = None ):
+    '''
+    ordering must be a list
+    '''
+    set_seed(args.eval_seed)
+    n_concepts = output_test['concepts_gt'].shape[1]
+    train_dataset = TensorDataset(output_train['concepts_gt'], output_train['labels_gt'])
+    val_dataset = TensorDataset(output_val['concepts_gt'], output_val['labels_gt'])
+    test_dataset = TensorDataset(output_test['concepts_gt'], output_test['labels_gt'])
+    
+    if ordering is None:
+        #--------------------------------------------------------
+        #       FIND INITIAL ORDERING BASED ON CORRELATIONS
+        #--------------------------------------------------------
+        logger.info("Computing correlation matrix...")
+        data = GenericDataset(dataset.split("_")[0],split='train')
+        gt_concepts = []
+        gt_labels = []
+        for sample in tqdm(data, desc='Computing Correlation Matrix'):
+            _,c,l = sample
+            gt_concepts.append(torch.tensor(c))
+            gt_labels.append(l)
+        gt_concepts = torch.stack(gt_concepts, dim=0)
+        gt_labels = torch.tensor(gt_labels)
+        
+        # Compute the concept correlation matrix vs the label
+        subs = torch.arange(len(output_train['concepts_gt']))  # Tensor: [0, 1, 2, ..., n]
+        # Select random indices
+        subs = torch.randperm(len(subs))[:2000]
+        observations = torch.cat((gt_concepts[subs,:].t(),gt_labels[subs].t().unsqueeze(dim=0)), dim=0)
+        corr_matrix = torch.corrcoef(observations)
+        import seaborn as sns
+        # Save the correlation matrix
+        corr_coeff = corr_matrix[-1]
+        # Convert to NumPy for plotting
+        corr_matrix_np = corr_matrix.numpy()
+        # Plot heatmap
+        plt.figure(figsize=(6, 5))
+        sns.heatmap(corr_matrix_np, cmap="coolwarm", center=0, fmt=".2f")
+        # Labels and title
+        plt.title("Correlation Matrix Heatmap")
+        plt.close()
+        sorted_tensor, indices = torch.sort(torch.abs(corr_coeff), descending=False)
+        # Remove the last index, which is the one corresponding to the label
+        indices = indices[:-1]  # Remove the last one, which is the label (most correlated)
+    else:
+        indices = torch.tensor(ordering)       
+
+    
+    accuracies_gt = []
+    accuracies_pred = []
+    losses = []
+    I_gt = []
+    # Compute the Entropy of y
+    def entropy(probabilities):
+        """Compute entropy of a discrete probability distribution."""
+        probabilities = probabilities.clamp(min=1e-9)  # Avoid log(0)
+        return -torch.sum(probabilities * torch.log(probabilities))
+    def entropy_batch(batch):
+        """Compute entropy of a discrete probability distribution."""
+        batch = batch.clamp(min=1e-9)  # Avoid log(0)
+        return -torch.sum(batch * torch.log(batch), dim=-1)
+    
+    probabilites = []
+    
+    for i in range(n_classes):
+        #print(torch.where(output_train['labels_gt']==i))
+        occurr = len(torch.where(output_test['labels_gt']==i)[0])
+        #print(occurr)
+        total = output_test['labels_gt'].shape[0]
+        probabilites.append(occurr/total)
+
+    print(probabilites)
+    H_y = entropy(torch.tensor(probabilites))
+    print(H_y)
+    
+    last_c_model_W = None
+
+    if dataset.split("_")[0] == 'shapes3d':
+        # How concepts are distributed
+        # from 0 to 9, the concept are about wall colors, etc.
+        concept_shapes3d = {'wall color':9,
+                          'background color':19,
+                          'object color': 29,
+                          'object size': 37,
+                          'shape':41}
+        concept_groups = list(concept_shapes3d.values())
+    else: 
+        concept_groups = [i for i in range(n_concepts)]
+    for concept_id,start_index in tqdm(enumerate(concept_groups), desc="Computing entropy and acc"):  
+        #if concept_id < 37:
+        #    continue
+        train_loss = None
+        val_loss = None
+        test_loss = None
+        #if start_index <37 :
+        #    continue
+        #if i<=29:
+        #    continue
+        if dataset.split("_")[0] == 'shapes3d':
+            sorted_tensor, indices = torch.sort(torch.abs(corr_coeff), descending=False)
+            subset = torch.tensor(range(0,concept_groups[concept_id]+1))
+        else:
+            subset = indices[:start_index+1].cpu()
+            #print(subset)
+            #print(indices)
+            #input("...")
+        #print(subset)
+        logger.warning(f"subset shape {output_train['concepts_pred'][subset].shape}")
+        
+        #print(output_train['concepts_pred'][subset].shape)
+        #print(output_train['labels_gt'].shape)
+        train_dataset = TensorDataset(output_train['concepts_pred'][:,subset], output_train['labels_gt'])
+        val_dataset = TensorDataset(output_val['concepts_pred'][:,subset], output_val['labels_gt'])
+        test_dataset = TensorDataset(output_test['concepts_pred'][:,subset], output_test['labels_gt'])
+        train_loader = torch.utils.data.DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
+        val_loader = torch.utils.data.DataLoader(val_dataset, shuffle=False, batch_size=batch_size)
+        test_loader = torch.utils.data.DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
+        weights = sklearn.utils.class_weight.compute_class_weight(class_weight='balanced', classes=np.unique(output_train['labels_gt']), y=output_train['labels_gt'].numpy())
+        #leak = LeakageLayer(in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device, init=last_c_model_W)
+        leak = LeakageSVM(C = 1, in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device, init=last_c_model_W)
+        
+        for e in range(lkg_epochs):
+            train_loss = leak.train(test_loader)
+            if e % 10 == 0:
+                print(f"e:{e} train:{train_loss} val:{val_loss} test:{test_loss}")
+
+        opy_pred = torch.tensor([]).to(device)
+        tot = len(test_loader)
+        train_split = tot*0.7
+        predictions = []
+        labels = []
+        for batch_idx,batch in enumerate(test_loader):
+            # Evaluate only on the unseen portion of the test data
+            if batch_idx < train_split:
+                continue
+            inp, out = batch
+            inp = inp.to(device).to(torch.float32)
+            out = out.to(device).long()
+            preds = leak.best_model(inp)
+            preds = torch.argmax(preds.cpu(), dim=1)
+            predictions.extend(preds)
+            labels.extend(out.cpu().tolist())
+            
+        entr = torch.mean(opy_pred).cpu()
+        # This is the unseen test accuracy
+        accuracies_pred.append(classification_report(labels,predictions,output_dict=True)['macro avg']['f1-score'])
+        losses.append(leak.best_loss)
+
+        ####### FOR GT concepts
+        train_dataset = TensorDataset(output_train['concepts_gt'][:,subset], output_train['labels_gt'])
+        val_dataset = TensorDataset(output_val['concepts_gt'][:,subset], output_val['labels_gt'])
+        test_dataset = TensorDataset(output_test['concepts_gt'][:,subset], output_test['labels_gt'])
+        train_loader = torch.utils.data.DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
+        val_loader = torch.utils.data.DataLoader(val_dataset, shuffle=False, batch_size=batch_size)
+        test_loader = torch.utils.data.DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
+        weights = sklearn.utils.class_weight.compute_class_weight(class_weight='balanced', classes=np.unique(output_train['labels_gt']), y=output_train['labels_gt'].numpy())
+        #leak = LeakageLayer(in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device)
+        leak = LeakageSVM(C=1, in_features=len(subset),out_features=n_classes, n_classes=n_classes, lr=0.001, step_size=80, lam=lam, alpha=alpha, weights=torch.tensor(weights), device = device)
+        
+        for e in range(lkg_epochs):
+            # The leakage model internally only trains on the first 70% of the loader
+            train_loss = leak.train(test_loader)
+            #val_loss = leak.val(val_loader)
+            if e % 10 == 0:
+                print(f"e:{e} train:{train_loss} val:{val_loss} test:{test_loss}")
+            #leak.scheduler.step()
+            
+        opy_gt = torch.tensor([]).to(device)
+        tot = len(test_loader)
+        train_split = tot*0.7
+        labels = []
+        predictions = []
+        # Evaluation
+        for batch_idx,batch in enumerate(test_loader):
+            if batch_idx < train_split: # Ignore the test set portion that has been used for training
+                continue
+            inp, out = batch
+            inp = inp.to(device).to(torch.float32)
+            out = out.to(device).long()
+            preds = leak.best_model(inp)
+            preds = torch.argmax(preds.cpu(), dim=1)
+            predictions.extend(preds)
+            labels.extend(out.cpu().tolist())
+       
+        entr = torch.mean(opy_gt).cpu()
+        accuracies_gt.append(classification_report(labels,predictions,output_dict=True)['macro avg']['f1-score'])
+        losses.append(leak.best_loss)
+        I_gt.append(entr)
+
+    I_gt = torch.tensor(I_gt)
+    I_gt = 1-I_gt/H_y
+    I_gt = I_gt.tolist()
+
+    ##################################
+    ##            LEAK              ##
+    ##################################
+    increase = []
+    delta = []
+    old = 0
+    max_f1_gt = np.max(accuracies_gt)
+    for i,f1 in enumerate(accuracies_pred):
+        increment = accuracies_pred[i]-accuracies_gt[i]
+        #old = accuracies_pred[i]
+        if increment < 0:
+            increment = 0
+        normalizer = max_f1_gt-accuracies_gt[i]
+        
+        # When the last one concept is added and normalizer is 0, set it to one to forget about it
+        if normalizer == 0.0:
+            normalizer = 1.0
+            
+        print(normalizer)
+        # If there is style leakage change the leakage computation
+        if accuracies_pred[i] > max_f1_gt:
+            increase.append(1 + accuracies_pred[i] - max_f1_gt)
+        else:
+            increase.append(increment/normalizer)
+        delta.append(accuracies_pred[i]-accuracies_gt[i])
+    
+    
+    # Export data
+    data_to_export = {'f1_pred':accuracies_pred, 'f1_gt':accuracies_gt, 'leakage':increase, 'delta':delta}
+    pickle.dump(data_to_export, open(os.path.join(args.load_dir,"leakage.data"), "wb"))
+    
+    
+    print(delta[-1])
+    print(increase[-1])
+    print(np.sort(delta))
+    print(np.argsort(delta))
+    max_id = np.argsort(delta)[-1]
+    new_ordering = indices.tolist()
+    import random
+    random.shuffle(new_ordering)
+    
+    
+    ##########################################
+    ##            LEAK  PLOTTING            ##
+    ##########################################
+    
+    with open(CONCEPT_SETS[dataset.split("_")[0]]) as f:
+        concepts = f.read().split("\n")
+    if dataset.split("_")[0] == 'shapes3d':
+        concepts = list(concept_shapes3d.keys())
+    # Plot
+    x = range(len(accuracies_gt))
+    plt.figure(figsize=(6, 4))
+    #print(len(accuracies_pred))
+    plt.plot(x, accuracies_gt, marker='o', linestyle='-', label="Acc gt", color = '#00ccff')
+    plt.plot(x, accuracies_pred, marker='o', linestyle='-', label="Acc pred", color = '#ff6666')
+    #plt.plot(x, losses, marker='o', linestyle='-', label="Values", color = 'red')
+    #plt.plot(x, I_gt, marker='o', linestyle='-', label="1-H(y|gt)/H(y)", color = '#1D6D47')
+    #plt.plot(x, I_pred, marker='o', linestyle='-', label="1-H(y|c)/H(y)", color = '#993333')
+    plt.xlabel("Index")
+    plt.ylabel("Value")
+    plt.title("Plot of Tensor Values")
+    plt.axhline(0, color='gray', linestyle='--', linewidth=0.8)  # Add horizontal line at y=0
+    plt.legend()
+    plt.grid(True)
+    #print(len(concepts))
+    #print(len(indices))
+    # Set custom labels
+    #print(indices)
+    #print(indices_inc)
+    #ne_wss = indices[indices_inc]
+    #print(ne_wss)
+    if dataset.split("_")[0] == 'shapes3d':
+        x_axis_names = concept_shapes3d.keys()
+    else:
+        x_axis_names = [concepts[i] for i in indices.tolist()]
+    
+    #x_axis_names = x_axis_names[-2:]
+    plt.xticks(x, x_axis_names, rotation=90)
+    if len(x_axis_names) > 80:
+        plt.xticks(x, x_axis_names, rotation=90, fontsize=5)
+        plt.tight_layout()
+    else:
+        plt.xticks(x, x_axis_names, rotation=90)
+    os.makedirs(os.path.join(args.load_dir, f"temp"), exist_ok=True)
+    # Show plot
+    plt.savefig(os.path.join(args.load_dir, "temp", f"deepleakage{str(epoch)}.png"), dpi=300, bbox_inches="tight")
+    if ordering is not None:
+        with open(os.path.join(args.load_dir, "temp",f"{epoch}_deepleakage.json"), "w") as f:
+            json.dump({'order': ordering, 'delta':delta, 'gt':accuracies_gt,'pred':accuracies_pred},f, indent=4)
+    return np.mean(increase), new_ordering
+     
     
 def leakage_collapsing(output, n_classes, epochs = 20, batch_size=128, device='cuda', hidden_size=1000, n_layers=3):
     data = torch.utils.data.TensorDataset(output['concepts_pred'], output['labels_gt'])

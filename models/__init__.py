@@ -25,4 +25,6 @@ logger.debug(f"Available models: {models}")
 
 def get_model(args):
   logger.info(f"Getting model {args.model}")
+  if args.model.endswith("logits"):
+    return models[args.model.replace("_logits","")](args)
   return models[args.model](args)

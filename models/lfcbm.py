@@ -53,7 +53,6 @@ class _Model(torch.nn.Module):
         x = self.proj_layer(x)
         concepts = x
         proj_c = (x-self.proj_mean)/self.proj_std
-        
         x = self.final(proj_c)
         out_dict = {'unnormalized_concepts':concepts, 'concepts':proj_c, 'preds':x}
         return out_dict

@@ -5,6 +5,7 @@ import torch
 from loguru import logger
 import json
 import os
+from tqdm import tqdm
 
 classes = {}
 # Get all classes from the module
@@ -14,7 +15,6 @@ for name, cls in inspect.getmembers(dataset_classes, inspect.isclass):
     except:
       continue
     classes[name] = cls
-
 
 logger.debug(f"Available datasets: {classes}")
 
@@ -69,6 +69,7 @@ class GenericDataset(torch.utils.data.Dataset):
         
         logger.debug(f"Loading dataset {ds_name} from {self.root}")
         if os.path.exists(f"{self.root}/dataset_info.json"):
+          logger.debug("Loading frequencies")
           dataset_info = json.load(open(f"{self.root}/dataset_info.json"))
           self.total_samples = dataset_info["total_samples"]
           self.concept_occurrencies = torch.tensor(dataset_info["concept_frequencies"])
@@ -78,10 +79,11 @@ class GenericDataset(torch.utils.data.Dataset):
           self.concept1_weights = torch.tensor(dataset_info["concept1_weights"])
           self.label_weights = torch.tensor(dataset_info["label_weights"])
         else:
+          logger.debug("Measuring frequencies")
           self.total_samples = len(self.dataset)
           self.n_concepts = len(self.dataset[0][1])
           self.concept_occurrencies, self.label_occurrencies = self.get_occurrencies()
-
+          logger.debug(self.concept_occurrencies)
           self.concept0_weights,self.concept1_weights = self._compute_concept_weights_tuple()
           self.label_weights = self._compute_label_weights()
 
@@ -103,6 +105,7 @@ class GenericDataset(torch.utils.data.Dataset):
       w[0] = self.concept0_weights[index]
       w[1] = self.concept1_weights[index]
       return w
+    
     def get_label_weights(self) -> torch.Tensor:
       return self.label_weights
     
@@ -127,7 +130,7 @@ class GenericDataset(torch.utils.data.Dataset):
     def get_occurrencies(self) -> tuple[torch.Tensor,dict]:
       concept_occ = torch.zeros(self.n_concepts)
       labels = {}
-      for sample in self.dataset:
+      for sample in tqdm(self.dataset):
         _, concepts, label = sample
         concept_occ += torch.tensor(concepts)
         label = int(torch.tensor(label).item())

@@ -125,10 +125,30 @@ def parse_resnetcbm_args(parser, args):
   parse_glm_args(parser, args)
   return parser
 
+def parse_cbmlite_args(parser, args):
+  parser.add_argument("-subset_size", type=int, default=500, help="Subset size of random samples from the main dataset")
+  return parse_resnetcbm_args(parser, args)
+
 def parse_oracle_args(parser,args):
   parser.add_argument("-start_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
   parser.add_argument("-end_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
   parser.add_argument("-ollama_model", type=str, default="llava-phi3", help="Which ollama model to use")
+  # Add the ResNet CBM arguments since it uses that as a backbone
+  parse_resnetcbm_args(parser,args)
+  return parser
+
+def parse_argus_args(parser, args):
+  parser.add_argument("-loss_fn", type=str, default='mse', help="Which loss function to use")
+  parser.add_argument("-gp_model", type=str, default=None, help="Which GP model activations to use")
+  parser.add_argument("-gp_val", type=str, default=None, help="Which GP model VAL activations to use")
+  # Add the ResNet CBM arguments since it uses that as a backbone
+  parse_resnetcbm_args(parser,args)
+  return parser
+
+def parse_argus_logits_args(parser, args):
+  parser.add_argument("-loss_fn", type=str, default='mse', help="Which loss function to use")
+  parser.add_argument("-gp_model", type=str, default=None, help="Which GP model activations to use")
+  parser.add_argument("-gp_val", type=str, default=None, help="Which GP model VAL activations to use")
   # Add the ResNet CBM arguments since it uses that as a backbone
   parse_resnetcbm_args(parser,args)
   return parser
