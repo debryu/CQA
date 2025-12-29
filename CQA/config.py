@@ -1,9 +1,10 @@
 SAVED_MODELS_FOLDER = {  
-  "vlgcbm":"./saved_models/",
-  "lfcbm":"./saved_models/",
-  "labo":"./saved_models/",
-  "resnetcbm":"./saved_models/",
-  "oracle":"./saved_models/",
+  "vlgcbm":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
+  "lfcbm":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
+  "labo":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
+  "resnetcbm":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
+  "oracle":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
+  "argo":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs"
   #"lfcbm":"./models/LFC/saved_models/",
 }
 
@@ -14,18 +15,21 @@ ACTIVATIONS_PATH = {
 }
 
 DATASETS_FOLDER_PATHS = {
-  "celeba":"/mnt/cimec-storage6/shared/cv_datasets/celeba_manual_download" ,
-  "shapes3d":"/mnt/cimec-storage6/shared/cv_datasets/cub" ,
+  "celeba":"/leonardo/home/userexternal/ndebole0/data/celeba_manual_download" ,
+  "shapes3d":"/leonardo/home/userexternal/ndebole0/data/shapes3d" ,
   #"cifar10":"/mnt/cimec-storage6/shared/cv_datasets/cifar10",
-  "cub":"/mnt/cimec-storage6/shared/cv_datasets/shapes3d"
+  "cub":"/leonardo/home/userexternal/ndebole0/data/cub",
+  "dermamnist":'/leonardo/home/userexternal/ndebole0/data/dermamnist',
 }
 
 CONCEPT_SETS = {
   "root":"./data_concepts/",
-  "celeba":"./data_concepts/celeba/handmade.txt",
-  "shapes3d":"./data_concepts/shapes3d/shapes3d.txt",
-  "cifar10": "./data_concepts/cifar10/cifar10_filtered.txt",
-  "cub":"./data/concepts_cub/cub_improved_concepts.txt",
+  "celeba":"/leonardo_scratch/fast/IscrC_ARGO/concepts/celeba/concepts.txt",
+  "shapes3d":"/leonardo_scratch/fast/IscrC_ARGO/concepts/shapes3d/concepts.txt",
+  #"cifar10": "/leonardo_scratch/fast/IscrC_ARGO/concepts/celeba/concepts.txt",
+  "cub":"/leonardo_scratch/fast/IscrC_ARGO/concepts/cub/concepts.txt",
+  "cub_short":"/leonardo_scratch/fast/IscrC_ARGO/concepts/cub/short.txt",
+  "dermamnist":"/leonardo_scratch/fast/IscrC_ARGO/concepts/dermamnist/concepts.txt",
 }
 
 LLM_GENERATED_ANNOTATIONS = "./data/llava-phi3_annotations"
@@ -42,13 +46,14 @@ LABELS = {
   "cifar10": ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck'],
   "shapes3d": ['red pill', 'not a red pill'],
   "cub": list(range(200)),
+  "dermamnist": list(range(2)),
 }
 
 def folder_naming_convention(args):
   ''' Naming convention for the saved model
   Available flags:
   '''
-  return f"{args.model}_{args.dataset}_{args.date}_{args.time}"
+  return f"{args.model}_{args.dataset}_{args.date}_{args.time}_SEED={args.seed}"
 
 METRICS = ['label_accuracy', 'label_f1','disentanglement', 'concept_accuracy', 'avg_concept_accuracy', 'avg_concept_f1', 'ois', 'leakage',
            'avg_concept_auc','concept_auc']

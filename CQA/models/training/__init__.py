@@ -5,6 +5,7 @@ from loguru import logger
 def _get_all_trainers():
     return [model.split(".")[0] for model in os.listdir("models/training") if model.endswith(".py") and model != "__init__.py"]
 
+'''
 trainers = {}
 last_layer_trainers = {}
 for model in _get_all_trainers():
@@ -18,6 +19,12 @@ logger.debug(f"Loaded trainers: {trainers}")
 def get_trainer(args):
   logger.info(f"Getting trainer model {args.model}")
   return trainers[args.model]
+'''
+
+def get_trainer(args):
+  model = args.model
+  mod = importlib.import_module(f"CQA.models.training.{model}")
+  return getattr(mod, "train")
 
 def get_last_layer_trainer(args):
   logger.info(f"Getting trainer model {args.model}")

@@ -1,5 +1,5 @@
 import torchvision
-from medmnist import ChestMNIST
+from medmnist import DermaMNIST
 from torch.utils.data import Subset, Dataset
 import torch
 from tqdm import tqdm
@@ -230,7 +230,7 @@ class SHAPES3DOriginal(torch.utils.data.Dataset):
         if self.transform is not None:
             return self.transform(image), torch.tensor(concepts), torch.tensor(labels)
         else: 
-            return image, concepts, int(labels)
+            return image, torch.tensor(concepts), torch.tensor(int(labels))
 
     def __len__(self):
         return len(self.images)      
@@ -341,6 +341,64 @@ class CUBDataset(Dataset):
             
         return img, torch.tensor(attr_label), torch.tensor(class_label)
 
+
+class NIHChestXrayOriginal(torch.utils.data.Dataset):
+    name = "nih"
+    def __init__(self, root, split='train', transform = None, args=None, fold = 0):
+        self.fold = fold
+        # Check if the dataset is already created
+        if not os.path.exists(os.path.join(root, f'{split}_split_{fold}_IMG.npy')) or not os.path.exists(os.path.join(root, f'{split}_split_{fold}_CNCPT.npy')):
+            raise NotImplementedError()
+        #    create_dataset(root, args)
+        self.images= np.load(os.path.join(root, f'{split}_split_{fold}_IMG.npy'), allow_pickle=True)
+        self.concepts = np.load(os.path.join(root, f'{split}_split_{fold}_CNCPT.npy'), allow_pickle=True)
+        self.classes = ['no findings', 'findings']
+        self.transform = transform
+
+        
+    def __getitem__(self, idx):
+        image = np.squeeze(self.images[idx])
+        # Convert the image to PIL img
+        image = Image.fromarray(image)
+        concepts = self.concepts[idx]
+        label = 0 if np.all(concepts == 0) else 1
+        if self.transform is not None:
+            return self.transform(image), torch.tensor(concepts), torch.tensor(label)
+        else: 
+            return image, torch.tensor(concepts), torch.tensor(int(label))
+
+    def __len__(self):
+        return len(self.images) 
+    
+class NIHChestXray4Original(torch.utils.data.Dataset):
+    name = "nih4"
+    def __init__(self, root, split='train', transform = None, args=None, fold = 0):
+        self.fold = fold
+        # Check if the dataset is already created
+        if not os.path.exists(os.path.join(root, f'{split}_split_{fold}_IMG.npy')) or not os.path.exists(os.path.join(root, f'{split}_split_{fold}_CNCPT.npy')):
+            raise NotImplementedError()
+        #    create_dataset(root, args)
+        self.images= np.load(os.path.join(root, f'{split}_split_{fold}_IMG.npy'), allow_pickle=True)
+        self.concepts = np.load(os.path.join(root, f'{split}_split_{fold}_CNCPT.npy'), allow_pickle=True)
+        logger.debug(f"Loaded dataset")
+        self.classes = ['no findings', 'findings']
+        self.transform = transform
+
+        
+    def __getitem__(self, idx):
+        image = np.squeeze(self.images[idx])
+        # Convert the image to PIL img
+        image = Image.fromarray(image)
+        concepts = self.concepts[idx]
+        label = 0 if np.all(concepts == 0) else 1
+        if self.transform is not None:
+            return self.transform(image), torch.tensor(concepts), torch.tensor(label)
+        else: 
+            return image, torch.tensor(concepts), torch.tensor(int(label))
+
+    def __len__(self):
+        return len(self.images) 
+    
 
 class SKINCON_Original(Dataset):
     def __init__(self, root="./data/skincon", transform=None):
@@ -504,4 +562,78 @@ class CHESTMINST_Dataset(Dataset):
         label = int(np.any(concepts))
         label = torch.tensor(label)
         concepts = torch.tensor(concepts)
+        return img, concepts, label
+    
+    
+class DERMAMINST_Dataset(Dataset):
+    '''
+    0 Atelectasis;
+    1 Cardiomegaly; 
+    2 Effusion; 
+    3 Infiltration; 
+    4 Mass; 
+    5 Nodule; 
+    6 Pneumonia; 
+    7 Pneumothorax; 
+    8 Consolidation;
+    9 Edema; 
+    10 Emphysema; 
+    11 Fibrosis; 
+    12 Pleural_Thickening; 
+    13 Hernia;
+    '''
+    name = 'dermamnist'
+    def __init__(self, root='./data/dermamnist', split='train', transform=None, size=224,
+                 train_subset_indices = [0,-1],
+                 val_subset_indices = [0,-1],
+                 test_subset_indices = [0,-1],):
+        os.makedirs(root, exist_ok=True)
+
+        # Since the ChestMNIST dataset is grayscale, we need to convert it to RGB
+        # To take advantage of the pre-trained models
+        if transform is not None:
+            transform_with_rgb = torchvision.transforms.Compose([
+                    torchvision.transforms.Lambda(lambda img: img.convert("RGB")),
+                    *transform.transforms,
+                ])
+        else:
+            transform_with_rgb = None
+            #transform_with_rgb = torchvision.transforms.Compose([
+            #        torchvision.transforms.Lambda(lambda img: img.convert("RGB")),
+            #    ])
+        self.n_concepts = 7
+        self.data = DermaMNIST(root=root, download=True, split=split, transform=transform_with_rgb, size=size)
+        if split == 'train':
+            if train_subset_indices[1] == -1:
+                train_subset_indices[1] = len(self.data)
+            self.data = Subset(self.data, range(train_subset_indices[0],train_subset_indices[1]))
+        if split == 'val':
+            if val_subset_indices[1] == -1:
+                val_subset_indices[1] = len(self.data)
+            self.data = Subset(self.data, range(val_subset_indices[0],val_subset_indices[1]))
+        if split == 'test':
+            if test_subset_indices[1] == -1:
+                test_subset_indices[1] = len(self.data)
+            self.data = Subset(self.data, range(test_subset_indices[0],test_subset_indices[1]))
+        '''
+        if split == 'train':
+            self.data = Subset(self.dataset, range(0, 5000))
+        elif split == 'val' or split == 'valid':
+            self.data = Subset(self.dataset, range(5000, 6000))
+        elif split == 'test':
+            self.data = Subset(self.dataset, range(6000, 7000))
+        else:
+            raise NotImplementedError
+        '''
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        img, class_id = self.data[index]    # type:ignore
+        if class_id in [0,1,5]:
+            label = 1
+        else:
+            label = 0
+        label = torch.tensor(label)
+        concepts = torch.eye(7)[class_id].squeeze(dim=0)
         return img, concepts, label

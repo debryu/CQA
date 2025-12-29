@@ -11,7 +11,6 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
-from typing import List
 
 '''
 Current output:
@@ -24,26 +23,42 @@ out_dict = {
       }
 '''
 
-def auc_roc(X,y, model_args, concept_name=None):
+def auc_roc(X,y, model_args):
+  logger.debug("auc_roc function")
   X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=model_args.seed)
   classifier = make_pipeline(StandardScaler(), LinearSVC(random_state=model_args.seed))
   classifier.fit(X_train, y_train)
   display = PrecisionRecallDisplay.from_estimator(
     classifier, X_test, y_test,name='LINEAR SVC', plot_chance_level=True
   )
-  if concept_name is not None:
-    _ = display.ax_.set_title(f'{model_args.dataset} {concept_name} AUC-ROC')
-  else:
-    _ = display.ax_.set_title(f'{model_args.dataset} AUC-ROC')
+  _ = display.ax_.set_title(f'{model_args.dataset} AUC-ROC')
   y_preds = classifier.decision_function(X_test)
   # Compute precision-recall curve
   precision, recall, _ = precision_recall_curve(y_test, y_preds)
-
+  inv_precision, inv_recall, _ = precision_recall_curve(1-y_test, -y_preds)
   # Compute PR AUC
   pr_auc = auc(recall, precision)
+  inv_pr_auc = auc(inv_recall, inv_precision)
   logger.info(f"PR AUC: {pr_auc}")
+  logger.info(f"INV PR AUC: {inv_pr_auc}")
   #plt.show()
   return pr_auc
+
+def macro_auc(concept_predictions, concept_labels):
+  logger.debug("Macro-pr-auc function") 
+  
+  # Compute precision-recall curve
+  precision, recall, _ = precision_recall_curve(concept_labels, concept_predictions)
+  inv_precision, inv_recall, _ = precision_recall_curve(1-concept_labels, -concept_predictions)
+  
+  # Compute PR AUC
+  pr_auc = auc(recall, precision)
+  inv_pr_auc = auc(inv_recall, inv_precision)
+  logger.info(f"PR AUC: {pr_auc}")
+  logger.info(f"INV PR AUC: {inv_pr_auc}")
+  #plt.show()
+  return (pr_auc + inv_pr_auc)/2
+
 
 def compute_AUCROC_concepts(output,args):
     logger.debug("Computing AUC-ROC")
@@ -53,14 +68,16 @@ def compute_AUCROC_concepts(output,args):
     if not hasattr(args, 'num_c'):
       args.num_c = conc_pred.shape[1]
     
+    macro_pr_aucs = []
     auc_rocs = []
     for i in tqdm(range(args.num_c), desc="Computing AUC-ROC"):
       logger.info(f"Computing AUC-ROC for concept {i}")
       X = conc_pred[:,i].detach().cpu().numpy().reshape(-1,1)
       y = conc_gt[:,i].detach().cpu().numpy()
       auc_rocs.append(auc_roc(X,y, args))
+      macro_pr_aucs.append(macro_auc(X,y))
     
-    auc_dict = {'avg_concept_auc':np.mean(auc_rocs), 'concept_auc': auc_rocs}
+    auc_dict = {'avg_concept_auc':np.mean(auc_rocs), 'concept_auc': auc_rocs, 'macro_pr_auc': macro_pr_aucs, 'avg_macro_pr_auc': np.mean(macro_pr_aucs)}
     return auc_dict
 
 def get_conceptWise_metrics(output, model_args, main_args, threshold, name = '', dict_str='concepts_pred'):
@@ -110,7 +127,7 @@ def get_conceptWise_metrics(output, model_args, main_args, threshold, name = '',
             f'{name}avg_concept_f1': sum(concept_f1)/len(concept_f1),
             f'{name}concept_f1':concept_f1}
 
-def get_metrics(output, requested:List[str]):
+def get_metrics(output, requested:list[str]):
   metrics = []
   for metric in requested:
     if metric == 'classification_report':

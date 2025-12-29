@@ -15,7 +15,8 @@ class BaseModel():
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.__dict__}>"
 
-    def get_transform(self, split):
+    @staticmethod
+    def get_transform(split):
       logger.debug(f"Using default method get_transform for {split}")
       if split == 'train':  
         return transforms.Compose([

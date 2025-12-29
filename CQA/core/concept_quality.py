@@ -155,6 +155,7 @@ class CONCEPT_QUALITY():
     concept_gt_val = self.output['concepts_gt'][train_size:]
 
     if max_samples != None:
+      logger.warning(f"Cutting the max number of samples to {max_samples}!")
       representation_train = representation_train[:max_samples]
       concept_gt_train = concept_gt_train[:max_samples]
       representation_val = representation_val[:max_samples]

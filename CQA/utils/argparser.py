@@ -132,3 +132,12 @@ def parse_oracle_args(parser,args):
   # Add the ResNet CBM arguments since it uses that as a backbone
   parse_resnetcbm_args(parser,args)
   return parser
+
+def parse_argo_args(parser, args):
+  #parser.add_argument("-loss_fn", type=str, default='mse', help="Which loss function to use")
+  parser.add_argument("-argo_train", type=str, default=None, help="Which GP model activations to use")
+  parser.add_argument("-argo_val", type=str, default=None, help="Which GP model VAL activations to use")
+  parser.add_argument("-pool_size", type=int, default=None, help="Which GP model VAL activations to use")
+  # Add the ResNet CBM arguments since it uses that as a backbone
+  parse_resnetcbm_args(parser,args)
+  return parser

@@ -1,10 +1,10 @@
 from loguru import logger
 import os
-from models.training import get_trainer, get_last_layer_trainer
-from config import SAVED_MODELS_FOLDER, folder_naming_convention
-from utils.args_utils import save_args
-from utils.utils import set_seed
-from utils.args_utils import load_args
+from CQA.models.training import get_trainer, get_last_layer_trainer
+from CQA.config import SAVED_MODELS_FOLDER, folder_naming_convention
+from CQA.utils.args_utils import save_args
+from CQA.utils.utils import set_seed
+from CQA.utils.args_utils import load_args
 import copy
 import wandb
 
@@ -20,6 +20,8 @@ def run(args):
         return
     # Save folder
     folder_name = folder_naming_convention(args)
+    if args.model == "argo":
+        folder_name += f"_POOLSIZE={args.pool_size}"
     if args.save_dir is None:
         args.save_dir = os.path.join(SAVED_MODELS_FOLDER[args.model],folder_name)
     logger.debug(f"Created folder: {args.save_dir}")

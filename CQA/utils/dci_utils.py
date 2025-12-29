@@ -117,9 +117,17 @@ CHESTMNIST_GROUND_TRUTH = [
   "Hernia"
 ]
 
+DERMAMNIST_GROUND_TRUTH = [
+  "Actinic Keratoses and intraepithelial carcinoma",
+  "Basal Cell Carcinoma",
+  "Benign Keratosis-like lesions",
+  "Dermatofibroma",
+  "Melanocytic Nevi",
+  "Melanoma",
+  "Vascular lesions",
+]
 
-CONCEPT_SETS['cub'] = "/mnt/cimec-storage6/users/nicola.debole/home/CQA/data/concepts/cub/cub_improved_concepts.txt"
-with open(CONCEPT_SETS['cub']) as f:
+with open(CONCEPT_SETS['cub_short']) as f:
         cub_concepts = f.read().split("\n")
     
 GROUND_TRUTH_CONCEPTS = {
@@ -127,6 +135,7 @@ GROUND_TRUTH_CONCEPTS = {
     "shapes3d": SHAPES3D_GROUND_TRUTH,
     "chestmnist": CHESTMNIST_GROUND_TRUTH,
     "cub": cub_concepts,
+    "dermamnist": DERMAMNIST_GROUND_TRUTH,
 }
 
 def save_IM_as_img(save_path,name,title,importance_matrix,save_plot=True):
