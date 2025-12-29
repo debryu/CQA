@@ -15,6 +15,9 @@ class BaseModel():
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.__dict__}>"
 
+    def eval(self):
+      self.model.eval()
+      
     @staticmethod
     def get_transform(split):
       logger.debug(f"Using default method get_transform for {split}")
@@ -79,12 +82,10 @@ class BaseModel():
             out_dict = self.model(features)
             logits = out_dict['preds'].float()
             c_repres = out_dict['concepts']
-            #print(c_repres)
             annotations.append(concepts_one_hot)
             concepts.append(c_repres)
             labels.append(targets)
             preds.append(logits)  
-            
             # calculate accuracy
             y_preds = logits.argmax(dim=1)
             accuracy = (y_preds.to('cpu') == targets.to('cpu')).sum().item()
@@ -94,6 +95,7 @@ class BaseModel():
         #if debug_i > 5:
         #  break
         debug_i += 1
+      
       annotations = torch.cat(annotations, dim=0).cpu()
       concepts = torch.cat(concepts, dim=0).cpu()
       labels = torch.cat(labels, dim=0).cpu()
