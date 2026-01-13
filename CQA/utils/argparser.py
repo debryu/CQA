@@ -109,6 +109,7 @@ def parse_resnetcbm_args(parser, args):
   parser.add_argument("-unfreeze", type=int, default=1, help="Number of conv layers to unfreeze from the pretrained model")
   parser.add_argument("-num_c", type=int, default=64, help="Number of concepts to learn when unsupervised")
   # Training
+  parser.add_argument("-num_workers",type=int,default=4,help="Number of workers used for loading data")
   parser.add_argument("-predictor", type=str, default="saga", help="Which linear predictor to use", choices=['saga', 'svm'])
   parser.add_argument("-c_svm", type=float, default=1, help="C hyperparameter for SVM")
   parser.add_argument("-optimizer", type=str, default="adamw", help="Which optimizer to use", choices=['adam', 'adamw', 'sgd'])
@@ -125,6 +126,10 @@ def parse_resnetcbm_args(parser, args):
   parse_glm_args(parser, args)
   return parser
 
+def parse_cbmlite_args(parser, args):
+  parser.add_argument("-subset_size", type=int, default=500, help="Subset size of random samples from the main dataset")
+  return parse_resnetcbm_args(parser, args)
+
 def parse_oracle_args(parser,args):
   parser.add_argument("-start_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
   parser.add_argument("-end_idx", type=int, default=None, help="Which index of the dataset to start from when quering the oracle")
@@ -134,7 +139,7 @@ def parse_oracle_args(parser,args):
   return parser
 
 def parse_argo_args(parser, args):
-  #parser.add_argument("-loss_fn", type=str, default='mse', help="Which loss function to use")
+  parser.add_argument("-loss_fn", type=str, default='ce', help="Which loss function to use")
   parser.add_argument("-argo_train", type=str, default=None, help="Which GP model activations to use")
   parser.add_argument("-argo_val", type=str, default=None, help="Which GP model VAL activations to use")
   parser.add_argument("-pool_size", type=int, default=None, help="Which GP model VAL activations to use")

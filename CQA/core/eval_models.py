@@ -12,6 +12,7 @@ import copy
 # TODO: remove temporary fixes  asdg5etr and 42ohdfsa
 def eval_model(arguments):
     if not os.path.isdir(arguments.load_dir):
+        logger.error(arguments.load_dir)
         raise ValueError()
     else:
         print("isdir")
@@ -113,8 +114,8 @@ def eval_model(arguments):
             CQA.save()
             
         if (CQA.main_args.label_metrics or CQA.main_args.all) and criteria_label_metrics:
-            if 'label_accuracy' not in CQA.metrics:
-                CQA.get_classification_report()
+            #if 'label_accuracy' not in CQA.metrics:
+            CQA.get_classification_report()
             print(CQA.classification_report)
             #CQA.save()
             #CQA.metrics()

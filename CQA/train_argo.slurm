@@ -1,33 +1,49 @@
 #!/bin/bash
 #SBATCH --job-name=train_argo
 #SBATCH --partition=boost_usr_prod
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=16
-#SBATCH --time=16:00:00
-#SBATCH --array=0-12%3            # Adjust based on #combinations and concurrency
-#SBATCH --output=$FAST/results/CBMs/slurm-%A_%a.out
-#SBATCH --error=$FAST/results/CBMs/slurm-%A_%a.err
+#SBATCH --time=20:00:00
+#SBATCH --array=0-12%6            # Adjust based on #combinations and concurrency
+#SBATCH --output=/leonardo_scratch/fast/IscrC_ARGO/results/logs/train-slurm-%A_%a.out
+#SBATCH --error=/leonardo_scratch/fast/IscrC_ARGO/results/logs/train-slurm-%A_%a.err
 
 module load python
 module load cuda
 source /leonardo/home/userexternal/ndebole0/projects/vlm/bin/activate
 
-# Ensure results folder exists
-mkdir -p $FAST/results/
 
 # Map SLURM_ARRAY_TASK_ID to your experiment combination
 python - <<'END'
 import os, itertools, subprocess, datetime
 from CQA.utils.load_ARGO_activations import get_activations
 import traceback
+
+results_folder = f"{os.environ['FAST']}/results/fixed_models/GPs/"
+
 try:
-    datasets = ['shapes3d']
-    acq_fns = ['ucbf','random']
+    datasets = ['cub', 'shapes3d', 'celeba','dermamnist']
+    acq_fns = ['random']
     kernels = ['cos']
-    seeds = [2]
-    Ks = [42*2,42*10]
-    runs = get_activations(seeds, datasets, acq_fns, kernels, Ks)
-    combinations = list(runs)
+    argo_seeds = [88]
+    n_concepts_run = 15
+    base = 112
+    
+    
+    combinations = []
+    for dataset in datasets:
+        if dataset == 'dermamnist':
+            Ks = [49,112,224]
+        elif dataset == 'celeba':
+            Ks = [78,195,390]
+        elif dataset == 'shapes3d':
+            Ks = [84,210,420]
+        elif dataset == 'cub':
+            Ks = [154,406,490]
+        else:
+            Ks = [base+n_concepts_run*1, base+n_concepts_run*2, base+n_concepts_run*3, base+n_concepts_run*4, base+n_concepts_run*5,base+n_concepts_run*10]
+        runs = get_activations(argo_seeds, dataset, acq_fns, kernels, Ks, results_folder)
+        combinations += list(runs)
 
 
     # Get combination for this SLURM array task
@@ -35,7 +51,7 @@ try:
     dataset = combinations[idx]
 
     time_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
-    outfile = f"{os.environ['FAST']}/results/CBMs/ARGO-CBM_{time_date}_{dataset['dataset']}_{dataset['seed']}_{dataset['K']}.txt"
+    outfile = f"{os.environ['FAST']}/results/logs/ARGO-CBM_{time_date}_{dataset['dataset']}_{dataset['seed']}_{dataset['K']}.txt"
 
     # Set env vars for the experiment
     env = os.environ.copy()
@@ -44,15 +60,33 @@ try:
     # Run the experiment
     os.makedirs(os.path.dirname(outfile), exist_ok=True)
     with open(outfile, "w") as f:
-        result = subprocess.run(["python", 
-                                 "train.py", 
-                                 "-m", "argo",
-                                 "-pool_size", str(dataset['K']),
-                                 "-d", dataset['dataset'],
-                                 "-seed", str(dataset['seed']),
-                                 "-argo_train", dataset['train'],
-                                 "-argo_val", dataset['val']
-                                 ], env=env, capture_output=True, text=True)
+        #import pdb; pdb.set_trace()
+        if dataset['dataset'] == 'cub':
+            result = subprocess.run(["python", 
+                                    "train.py", 
+                                    "-m", "argo",
+                                    "-pool_size", str(dataset['K']),
+                                    "-d", dataset['dataset'],
+                                    "-backbone", "resnet18_cub",
+                                    "-unfreeze", "5",
+                                    "-seed", str(dataset['seed']),
+                                    "-argo_train", dataset['train'],
+                                    "-argo_val", dataset['val'],
+                                    "-loss_fn", "ce",
+                                    ], env=env, capture_output=True, text=True)
+        else:
+            result = subprocess.run(["python", 
+                                    "train.py", 
+                                    "-m", "argo",
+                                    "-unfreeze", "5",
+                                    "-pool_size", str(dataset['K']),
+                                    "-d", dataset['dataset'],
+                                    "-seed", str(dataset['seed']),
+                                    "-argo_train", dataset['train'],
+                                    "-argo_val", dataset['val'],
+                                    "-loss_fn", "ce",
+                                    ], env=env, capture_output=True, text=True)
+        
         f.write(result.stdout)
         if result.stderr:
             f.write("\nERRORS:\n")
@@ -60,9 +94,10 @@ try:
 
 except Exception as e:
     time_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
-    logfile = f"{os.environ['FAST']}/results/CBMs/logs_{time_date}.txt"
+    logfile = f"{os.environ['FAST']}/results/logs/logs_{time_date}_ID{idx}.txt"
     #traceback.print_exc()
-    with open(logfile, "w") as f:
-        f.write(str(e))
+    tb = traceback.format_exc()
+with open(logfile, "w") as f:
+    f.write(tb)
 
 END

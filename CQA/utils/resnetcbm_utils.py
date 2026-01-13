@@ -12,33 +12,34 @@ import torch.utils.model_zoo as model_zoo
 from torch.optim import lr_scheduler
 from torchvision.models.resnet import Bottleneck, BasicBlock
 from pytorchcv.model_provider import get_model as ptcv_get_model
+from CQA.datasets import GenericDataset
 
 def get_activations_and_targets(model_class,dataset_name,split,args):
     logger.debug(f'Retrieving labels of {dataset_name} {split}...')
     transform = model_class.get_transform(split=split)
-    data = get_dataset(ds_name=dataset_name,split=split,transform=transform)
+    data = GenericDataset(ds_name=dataset_name,split=split,transform=transform)
     n_examples = len(data)
-    logger.debug(f"Number of examples: {n_examples}")
     targets = []
     concepts = [] 
     gt_concetps = []
     model = model_class.model
     model.eval().to(args.device)
-    for i in tqdm(range(len(data)), desc='Running model'):
-        img, c, label = data[i]
-        label = label.long()
-        img = img.to(args.device)
-        with torch.no_grad():
-            output = model(img.unsqueeze(0))
-        targets.append(label.cpu())
-        concepts.append(output['concepts'].cpu())
-        gt_concetps.append(c.cpu())
-    
-    targets = torch.stack(targets, dim=0)
+    with torch.no_grad():
+        loader = torch.utils.data.DataLoader(data, batch_size=1024, shuffle=False)
+        logger.debug(f"Number of examples: {n_examples}")
+        for batch in tqdm(loader, desc='Running model'):
+            imgs, cs, labels = batch
+            label = labels.long()
+            imgs = imgs.to(args.device)
+            output = model(imgs)
+            targets.append(label.cpu())
+            concepts.append(output['concepts'].cpu())
+            gt_concetps.append(cs.cpu())
+   
+    targets = torch.cat(targets, dim=0)
     concepts = torch.cat(concepts, dim=0)
-    gt_concetps = torch.stack(gt_concetps, dim=0)
+    gt_concetps = torch.cat(gt_concetps, dim=0)
     logger.debug(f"Targets shape: {targets.shape}, Concepts shape: {concepts.shape}, GT Concepts shape: {gt_concetps.shape}")
-
     return {'concepts':concepts,'targets':targets,'gt_concepts':gt_concetps, 'n_examples':n_examples}
 
 class DeepLearningModel(torch.nn.Module):
@@ -287,7 +288,7 @@ class PretrainedResNetModel(DeepLearningModel):
         logger.debug(args)
         super().__init__(args)
         self.dropout = args.dropout_prob
-        
+        self.device = args.device
         self.fc_layers = [1000,args.num_c]
         self.pretrained_path = None
         self.pretrained_model_name = args.backbone
@@ -297,6 +298,7 @@ class PretrainedResNetModel(DeepLearningModel):
         # ---- Architecture based on selected model ----
         if self.pretrained_model_name == "resnet18_cub":
             self.target_model = ptcv_get_model("resnet18_cub", pretrained=True)
+            self.target_model.to(args.device)
             self.target_model.eval()
             # UNFREEZE 
             frozen = []
@@ -323,7 +325,7 @@ class PretrainedResNetModel(DeepLearningModel):
                 setattr(self, 'fc' + str(i + 1), torch.nn.Linear(previous_layer_dims, layer))
                 previous_layer_dims = layer
             # Move model to GPU
-            self.cuda()
+            self.to(self.device)
             # Setup optimizers in the DeepLearningModel class
             self.setup_optimizers(self.optimizer_name, self.optimizer_kwargs, self.scheduler_kwargs)
         else:
@@ -386,7 +388,7 @@ class PretrainedResNetModel(DeepLearningModel):
         self.unfreeze_conv_layers(self.conv_layers_before_end_to_unfreeze)
 
         # Move model to GPU
-        self.cuda()
+        self.to(self.device)
 
         # Setup optimizers in the DeepLearningModel class
         self.setup_optimizers(self.optimizer_name, self.optimizer_kwargs, self.scheduler_kwargs)
@@ -455,7 +457,8 @@ class PretrainedResNetModel(DeepLearningModel):
         if self.pretrained_path and len(self.pretrained_exclude_vars) > 0:
             print('[A] Loading our own pretrained model')
             own_state = self.state_dict()
-            pretrained_state = torch.load(self.pretrained_path, weights_only=True)
+            pretrained_state = torch.load(self.pretrained_path, weights_only=True, map_location="cpu")
+            pretrained_state.to(self.device)
             for name, param in pretrained_state.items():
                 if any([name.startswith(var) for var in self.pretrained_exclude_vars]):
                     print('  Skipping %s' % name)

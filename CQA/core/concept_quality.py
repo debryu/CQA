@@ -11,7 +11,7 @@ from CQA.models import get_model
 from CQA.utils.utils import set_seed
 from loguru import logger
 from sklearn.metrics import classification_report as cr
-from CQA.metrics.common import get_conceptWise_metrics, compute_AUCROC_concepts
+from CQA.metrics.common import get_conceptWise_metrics, compute_AUCROC_concepts, compute_f1_auc
 from CQA.metrics.leakage import leakage_collapsing, auto_leakage
 from CQA.utils.eval_models import train_LR_on_concepts
 from sklearn.ensemble import RandomForestClassifier
@@ -72,6 +72,7 @@ class CONCEPT_QUALITY():
 
   def get_classification_report(self):
     y_true = self.output['labels_gt'] 
+    print(self.output['labels_pred'])
     y_pred = self.output['labels_pred'].argmax(axis=1)
     ds_name = self.model.args.dataset.split('_')[0]
     target_names = LABELS[ds_name]
@@ -123,6 +124,7 @@ class CONCEPT_QUALITY():
       else:
         raise ValueError("Concepts in the wrong format.")
       
+    '''
     _output = copy.deepcopy(self.output)
     if self.args.model in REQUIRES_SIGMOID:
       logger.info("Training Logistic Regression on Concepts")
@@ -140,8 +142,10 @@ class CONCEPT_QUALITY():
     # Always compute auc roc on raw concept predictions, this is handled inside the function
     a = compute_AUCROC_concepts(_output, self.model.args)
     self.metrics.update(a)
-    
-
+    '''
+    print(self.output['concepts_pred'])
+    m = compute_f1_auc(self.output['concepts_pred'], self.output['concepts_gt'])  # type:ignore
+    self.metrics.update(m)
     self.save()
     return m
   

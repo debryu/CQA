@@ -3,6 +3,7 @@ SAVED_MODELS_FOLDER = {
   "lfcbm":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
   "labo":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
   "resnetcbm":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
+  "cbmlite":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
   "oracle":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs",
   "argo":"/leonardo_scratch/fast/IscrC_ARGO/results/CBMs"
   #"lfcbm":"./models/LFC/saved_models/",

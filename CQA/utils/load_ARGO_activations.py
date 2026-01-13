@@ -7,7 +7,7 @@ import traceback
 from datetime import datetime
 
 FAST_STORAGE = os.environ["FAST"]
-results_folder = os.path.join(FAST_STORAGE,"results","GPs","GPs")
+default_results_folder = os.path.join(FAST_STORAGE,"results","GPs","GPs")
 ARGO_activations_folder = os.path.join(FAST_STORAGE,"results","annotations")
 seeds = [3]
 datasets = ['dermamnist']
@@ -15,7 +15,9 @@ acq_fns = ['ucbf']
 kernels = ['cos']
 Ks = [7*10,7*20,7*30,7*40,7*50,7*60]
 
-def get_activations(seeds, datasets,acq_fns,kernels,Ks):
+def get_activations(seeds, datasets,acq_fns,kernels,Ks, results_folder = None):
+    if results_folder == None:
+        results_folder = default_results_folder
     experiments = []
     # Collect all experiments
     files = os.listdir(results_folder)
@@ -36,6 +38,8 @@ def get_activations(seeds, datasets,acq_fns,kernels,Ks):
         acq_fn = run.split("_")[2]
         kernel = run.split("_")[3]
         K = int(run.split("_")[4])
+        with open(os.path.join(results_folder,f), 'r') as jsonfile:
+            results_dict = json.load(jsonfile)
         
         if model == "SVGP":
             experiments.append({
@@ -48,6 +52,7 @@ def get_activations(seeds, datasets,acq_fns,kernels,Ks):
                 "acq_fn":acq_fn,
                 "kernel":kernel,
                 "K":K,
+                "results": results_dict
             })
 
     run = []
@@ -56,18 +61,26 @@ def get_activations(seeds, datasets,acq_fns,kernels,Ks):
         if exp['seed'] in seeds and exp['kernel'] in kernels and exp['acq_fn'] in acq_fns and exp['dataset'] in datasets:
             run.append(exp)
         else: 
-            print(exp['seed'], exp['kernel'],exp['acq_fn'], exp['dataset'])
+            continue
+            #print(exp['seed'], exp['kernel'],exp['acq_fn'], exp['dataset'])
 
     acts = []
     for r in run:
         for K in Ks:
             train_path = os.path.join(ARGO_activations_folder,f"TRAIN-{r['dataset']}-{K}-{r['acq_fn']}-{r['kernel']}-{r['seed']}_{r['strtime']}.pt")
             val_path = os.path.join(ARGO_activations_folder,f"VAL-{r['dataset']}-{K}-{r['acq_fn']}-{r['kernel']}-{r['seed']}_{r['strtime']}.pt")
+            results = None
+            for iter in r['results']:
+                if iter['training_pool_size'] == K:
+                    results = iter
+                    break
+            
             acts.append({"train":train_path,
                          "val":val_path,
                          "dataset":r['dataset'],
                          "seed":r['seed'],
                          "K":K,
+                         "results": results,
                          "acq_fn":r['acq_fn'],
                          "strtime": r['strtime'],
                          })

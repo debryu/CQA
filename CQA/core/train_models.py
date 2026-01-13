@@ -22,6 +22,8 @@ def run(args):
     folder_name = folder_naming_convention(args)
     if args.model == "argo":
         folder_name += f"_POOLSIZE={args.pool_size}"
+    elif args.model == "cbmlite":
+        folder_name += f"_SUBSETSIZE={args.subset_size}"
     if args.save_dir is None:
         args.save_dir = os.path.join(SAVED_MODELS_FOLDER[args.model],folder_name)
     logger.debug(f"Created folder: {args.save_dir}")
