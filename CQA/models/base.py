@@ -27,7 +27,7 @@ class BaseModel():
             transforms.Resize((224,224)),
             #transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
-            ColorJitter(brightness=0.3, contrast=0.5, saturation=0.1, hue=0.0),
+            ColorJitter(brightness=0.3, contrast=0.5, saturation=0.1, hue=0.01),
             GaussianNoise(0,0.02),
         ])
       else:
@@ -45,6 +45,11 @@ class BaseModel():
         return DataLoader(data, batch_size = self.args.batch_size, shuffle = True)
       else:
         return DataLoader(data, batch_size = self.args.batch_size, shuffle = False)
+      
+    def get_loader_from_data(self, data):
+      logger.debug(f"Using default method get_loader for {split}")
+      transform = self.get_transform(split=split)
+      return DataLoader(data, batch_size = self.args.batch_size, shuffle = False)
         
     def check_integrity(self):
       # Check if the variable exists
@@ -55,7 +60,8 @@ class BaseModel():
       try:
         batch_size = self.args.batch_size
       except:
-        raise ValueError("batch_size is not defined. Make sure to set it in the custom __init__ function.")
+        self.args.batch_size = 128
+        #raise ValueError("batch_size is not defined. Make sure to set it in the custom __init__ function.")
       # Check if the methods exist
       
     def run(self, split = 'test'):

@@ -5,18 +5,17 @@ from loguru import logger
 from tqdm import tqdm
 import torchvision.transforms as transforms
 from functools import partial
-import random
-
+from CQA.datasets import GenericDataset
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 from PIL import Image
+import random
+from torch.utils.data import DataLoader
 try:
     from torchvision.transforms import InterpolationMode
     BICUBIC = InterpolationMode.BICUBIC
 except ImportError:
-    BICUBIC = Image.BICUBIC # type:ignore
-from torchvision.transforms.v2 import ColorJitter, GaussianNoise
-from CQA.datasets import GenericDataset
-from torch.utils.data import DataLoader
+    BICUBIC = Image.BICUBIC
+
 from CQA.utils.resnetcbm_utils import PretrainedResNetModel
 
 def get_backbone_function(model, x):
@@ -34,6 +33,7 @@ class _Model(torch.nn.Module):
         probs = torch.nn.functional.sigmoid(concepts)
         # Generate random preds with dimension batch_size x 2
         preds = self.final(concepts)
+        # The concepts are now the probs since we are approximating a GP
         out_dict = {'unnormalized_concepts':concepts, 'concepts':concepts, 'preds':preds, 'concept_probs':probs}
         return out_dict
 
@@ -53,57 +53,43 @@ class _Model(torch.nn.Module):
         self.opt = torch.optim.Adam(self.parameters(), args.lr)
 
 
-class CBMLITE(BaseModel):
+class ARGO(BaseModel):
     def __init__(self, args):
         super().__init__(self, args)
         # Update the load_dir based on the model
         self.model = _Model(args)
         self.args = self.model.args
-        self.seed = args.seed
-        self.subset_size = args.subset_size
 
+    def train(self, loader):
+        pass
+    
     #@staticmethod
     #def get_transform(split):
-    #    logger.debug(f"Using cbmlite method get_transform for {split}")
-    #    
+    #    logger.debug(f"Using argo method get_transform for {split}")
     #    return transforms.Compose([
     #        transforms.ToTensor(),
     #        transforms.Resize((224,224)),
     #    ])
-        
-        
+    
+    def get_loader(self, split):
+        dataset_name = self.args.dataset
+        dataset_base = dataset_name.split("_")[0]
+        transform = self.get_transform(split=split)
+        gt_data = GenericDataset(dataset_base, split = split, transform = transform)
+        return DataLoader(gt_data, batch_size=self.args.batch_size, shuffle=False)
+    
     def get_subset_loader(self, split, val_split_count = 100):
-        if split not in ['train','val']:
+        if split not in ['val']:
             raise ValueError()
         
         dataset_name = self.args.dataset
         transform = self.get_transform(split=split)
         gt_data = GenericDataset(dataset_name, split = split, transform = transform)
-        if split == 'train':
-            self.subset_indices = random.sample(range(len(gt_data)), self.subset_size)
-            gt_data_subset = torch.utils.data.Subset(gt_data, self.subset_indices)
-            self.train_data = gt_data_subset
-            logger.warning(f"Using subset train data with {len(gt_data_subset)} samples")
-            return DataLoader(gt_data_subset, batch_size=self.args.batch_size, shuffle=True)
-        else:
-            self.subset_indices = random.sample(range(len(gt_data)), val_split_count)
-            gt_data_subset = torch.utils.data.Subset(gt_data, self.subset_indices)
-            self.val_data = gt_data_subset
-            logger.warning(f"Using subset val data with {val_split_count} samples")
-            return DataLoader(gt_data_subset, batch_size=self.args.batch_size, shuffle=False)
-            
-    def get_loader(self, split):
-        dataset_name = self.args.dataset
-        transform = self.get_transform(split=split)
-        gt_data = GenericDataset(dataset_name, split = split, transform = transform)
-        if split == 'train':
-            return DataLoader(gt_data, batch_size=self.args.batch_size, shuffle=True)
-        else:
-            return DataLoader(gt_data, batch_size=self.args.batch_size, shuffle=False)
-    
-    def train(self, loader):
-        pass
-
+        self.subset_indices = random.sample(range(len(gt_data)), val_split_count)
+        gt_data_subset = torch.utils.data.Subset(gt_data, self.subset_indices)
+        self.val_data = gt_data_subset
+        logger.warning(f"Using subset val data with {val_split_count} samples")
+        return DataLoader(gt_data_subset, batch_size=self.args.batch_size, shuffle=False)
     '''
     def get_transform(self):
         t = transforms.Compose(

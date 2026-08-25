@@ -225,12 +225,13 @@ class SHAPES3DOriginal(torch.utils.data.Dataset):
         image = self.images[idx]
         # Convert the image to PIL img
         image = Image.fromarray(image)
-        concepts = self.concepts[idx]
+        concepts = torch.tensor(self.concepts[idx])
+        concepts_without_size = torch.cat([concepts[0:30], concepts[38:]], dim=0)
         labels = self.labels[idx]
         if self.transform is not None:
-            return self.transform(image), torch.tensor(concepts), torch.tensor(labels)
+            return self.transform(image), concepts, torch.tensor(labels)
         else: 
-            return image, torch.tensor(concepts), torch.tensor(int(labels))
+            return image, concepts, torch.tensor(int(labels))
 
     def __len__(self):
         return len(self.images)      
@@ -331,6 +332,8 @@ class CUBDataset(Dataset):
     def __getitem__(self, idx):
         img_data = self.data[idx]
         img_path = img_data['img_path']
+        #print(img_path)
+        #print(idx)
         idx = img_path.split('/').index('CUB_200_2011')
         img_path = '/'.join([self.image_dir] + img_path.split('/')[idx+2:])
         img = Image.open(img_path).convert('RGB')

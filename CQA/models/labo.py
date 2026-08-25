@@ -95,28 +95,30 @@ class LABO(BaseModel):
         # Save test clip activations
         #save activations and get save_paths
         ds_test = f"{args.dataset}_test"
-        save_activations(clip_name = args.clip_name, target_name = args.backbone, 
-                               target_layers = [args.feature_layer], d_probe = ds_test,
-                               concept_set = args.concept_set, batch_size = args.batch_size, 
-                               device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
+        if 'dermamnist' in args.concept_set:
+            args.concept_set = 'dermamnist'
+        #save_activations(clip_name = args.clip_name, target_name = args.backbone, 
+        #                       target_layers = [args.feature_layer], d_probe = ds_test,
+        #                       concept_set = args.concept_set, batch_size = args.batch_size, 
+        #                       device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
         test_target_save_name, test_clip_save_name, test_text_save_name = get_save_names(args.clip_name, args.backbone, 
                                             args.feature_layer,ds_test, args.concept_set, "avg", ACTIVATIONS_PATH['shared'])
         
         ds_test = f"{args.dataset}_train"
-        save_activations(clip_name = args.clip_name, target_name = args.backbone, 
-                               target_layers = [args.feature_layer], d_probe = ds_test,
-                               concept_set = args.concept_set, batch_size = args.batch_size, 
-                               device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
+        #save_activations(clip_name = args.clip_name, target_name = args.backbone, 
+        #                       target_layers = [args.feature_layer], d_probe = ds_test,
+        #                       concept_set = args.concept_set, batch_size = args.batch_size, 
+        #                       device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
         train_target_save_name, train_clip_save_name, train_text_save_name = get_save_names(args.clip_name, args.backbone, 
                                             args.feature_layer,ds_test, args.concept_set, "avg", ACTIVATIONS_PATH['shared'])
         
         ds_test = f"{args.dataset}_val"
-        save_activations(clip_name = args.clip_name, target_name = args.backbone, 
-                               target_layers = [args.feature_layer], d_probe = ds_test,
-                               concept_set = args.concept_set, batch_size = args.batch_size, 
-                               device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
+        #save_activations(clip_name = args.clip_name, target_name = args.backbone, 
+        #                       target_layers = [args.feature_layer], d_probe = ds_test,
+        #                       concept_set = args.concept_set, batch_size = args.batch_size, 
+        #                       device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
         val_target_save_name, val_clip_save_name, val_text_save_name = get_save_names(args.clip_name, args.backbone, 
                                             args.feature_layer,ds_test, args.concept_set, "avg", ACTIVATIONS_PATH['shared'])

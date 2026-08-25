@@ -2,9 +2,9 @@
 #SBATCH --job-name=train_argo
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:2
-#SBATCH --cpus-per-task=16
-#SBATCH --time=20:00:00
-#SBATCH --array=0-12%6            # Adjust based on #combinations and concurrency
+#SBATCH --cpus-per-task=20
+#SBATCH --time=23:00:00
+#SBATCH --array=0-3%2            # Adjust based on #combinations and concurrency
 #SBATCH --output=/leonardo_scratch/fast/IscrC_ARGO/results/logs/train-slurm-%A_%a.out
 #SBATCH --error=/leonardo_scratch/fast/IscrC_ARGO/results/logs/train-slurm-%A_%a.err
 
@@ -19,13 +19,13 @@ import os, itertools, subprocess, datetime
 from CQA.utils.load_ARGO_activations import get_activations
 import traceback
 
-results_folder = f"{os.environ['FAST']}/results/fixed_models/GPs/"
+results_folder = f"{os.environ['FAST']}/results/ICML/GPs/"
 
 try:
-    datasets = ['cub', 'shapes3d', 'celeba','dermamnist']
+    datasets = ['cub']
     acq_fns = ['random']
-    kernels = ['cos']
-    argo_seeds = [88]
+    kernels = ['cosb']
+    argo_seeds = [108]
     n_concepts_run = 15
     base = 112
     
@@ -33,13 +33,13 @@ try:
     combinations = []
     for dataset in datasets:
         if dataset == 'dermamnist':
-            Ks = [49,112,224]
+            Ks = [160,240,360]
         elif dataset == 'celeba':
-            Ks = [78,195,390]
+            Ks = [160,240,360]
         elif dataset == 'shapes3d':
-            Ks = [84,210,420]
+            Ks = [160,240,360]
         elif dataset == 'cub':
-            Ks = [154,406,490]
+            Ks = [160,240,360]
         else:
             Ks = [base+n_concepts_run*1, base+n_concepts_run*2, base+n_concepts_run*3, base+n_concepts_run*4, base+n_concepts_run*5,base+n_concepts_run*10]
         runs = get_activations(argo_seeds, dataset, acq_fns, kernels, Ks, results_folder)
@@ -65,10 +65,15 @@ try:
             result = subprocess.run(["python", 
                                     "train.py", 
                                     "-m", "argo",
+                                    "-unfreeze", "0",
+                                    "-val_interval", "5",
+                                    "-patience", "3",
+                                    "-n_epochs", "100",
+                                    "-num_workers", "8",
+                                    "-batch_size", "2048",
                                     "-pool_size", str(dataset['K']),
                                     "-d", dataset['dataset'],
                                     "-backbone", "resnet18_cub",
-                                    "-unfreeze", "5",
                                     "-seed", str(dataset['seed']),
                                     "-argo_train", dataset['train'],
                                     "-argo_val", dataset['val'],
@@ -78,7 +83,12 @@ try:
             result = subprocess.run(["python", 
                                     "train.py", 
                                     "-m", "argo",
-                                    "-unfreeze", "5",
+                                    "-unfreeze", "100",
+                                    "-val_interval", "5",
+                                    "-patience", "3",
+                                    "-n_epochs", "200",
+                                    "-num_workers", "8",
+                                    "-batch_size", "2048",
                                     "-pool_size", str(dataset['K']),
                                     "-d", dataset['dataset'],
                                     "-seed", str(dataset['seed']),

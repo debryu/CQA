@@ -4,7 +4,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
 #SBATCH --time=16:00:00
-#SBATCH --array=0-5%5           # Adjust based on #combinations and concurrency
+#SBATCH --array=0-5%2           # Adjust based on #combinations and concurrency
 #SBATCH --output=/leonardo_scratch/fast/IscrC_ARGO/results/logs/eval-slurm-%A_%a.out
 #SBATCH --error=/leonardo_scratch/fast/IscrC_ARGO/results/logs/eval-slurm-%A_%a.err
 
@@ -19,16 +19,16 @@ from CQA.utils.load_ARGO_activations import get_activations
 import traceback
 try:
     # Find all experiments
-    path = "results/fixed_models/CBM/argo_ucbf1"
+    path = "results/ARGOCBM"
     FOLDER = os.path.join(os.environ['FAST'],path)
 
     
     experiments = [
-        'argo_cub_2026_01_11_12_31_SEED=88_POOLSIZE=154',
-        'argo_cub_2026_01_11_12_32_SEED=88_POOLSIZE=238',
-        'argo_cub_2026_01_11_12_32_SEED=88_POOLSIZE=322',
-        'argo_cub_2026_01_11_12_32_SEED=88_POOLSIZE=406',
-        'argo_cub_2026_01_11_12_32_SEED=88_POOLSIZE=490',
+        "celeba-40-randomc-RBF-123_2026_02_21_19_34_SEED=123",
+        "celeba-100-randomc-RBF-123_2026_02_21_19_34_SEED=123",
+        "celeba-160-randomc-RBF-123_2026_02_21_19_34_SEED=123",
+        "celeba-220-randomc-RBF-123_2026_02_21_19_34_SEED=123",
+        "celeba-280-randomc-RBF-123_2026_02_21_19_34_SEED=123",
     ]
     
 

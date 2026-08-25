@@ -7,6 +7,7 @@ import os
 from multiprocessing import Pool
 from loguru import logger
 
+SAVE_DIR = "/leonardo_scratch/fast/IscrC_ARGO/competitors"
 CUDA_VISIBLE_DEVICES = '1'
 vlg_run = {
     # GRID SEARCH PARAMETERS
@@ -65,6 +66,7 @@ resnetcbm_run = {
     # GRID SEARCH PARAMETERS
     "-epochs": [20,
                     ],
+    "-patience":[10],
     "-unfreeze":[5],
     "-lr": [0.001],
     "-balanced":[""],
@@ -75,16 +77,18 @@ resnetcbm_run = {
     "-model": ["resnetcbm"],
     "-dataset": [
                     "celeba",
-                    "shapes3d"
+                    "shapes3d",
+                    "dermamnist",
                 ],
     "-wandb":[""],
-    #"-seed":["64","65","66","67","68"],
-    "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
+    "-seed":["42","43","44","45","46"],
+    #"-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
 }
 resnetcbm_run_cub = {
     # GRID SEARCH PARAMETERS
     "-epochs": [20,
                     ],
+    "-patience":[10],                
     "-unfreeze":[5],
     "-lr": [0.001],
     "-balanced":[""],
@@ -95,9 +99,9 @@ resnetcbm_run_cub = {
     "-val_interval":[1],
     "-model": ["resnetcbm"],
     "-dataset": ["cub"],
-    "-wandb":[""],
-    #"-seed":["74","75","76","77","78"],
-    "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
+    #"-wandb":[""],
+    "-seed":["42","43","44","45","46"],
+    #"-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
 }
 lfcbm_run = {
     # GRID SEARCH PARAMETERS
@@ -118,47 +122,48 @@ lfcbm_run = {
 
 lfcbm_run_cub = {
     # GRID SEARCH PARAMETERS
-    
+    "-save_dir": [SAVE_DIR],
 
     # FIXED PARAMETERS
     "-model": ["lfcbm"],
+    
     "-dataset": [
                     "cub",
                 ],
     "-backbone": ["resnet18_cub"],
     "-feature_layer": ["features.final_pool"],
-    "-wandb":[""],
     #"-seed":["74","75","76","77","78"],
-    "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
+    #"-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
     "-clip_cutoff": [0.0],
     "-interpretability_cutoff":[0.0],
+    "-seed":["42","43","44","45","46"],
 }
 
 labo_run = {
     # GRID SEARCH PARAMETERS
-    
+    "-save_dir": [SAVE_DIR],
 
     # FIXED PARAMETERS
     "-model": ["labo"],
+    "-clip_name": ["ViT-L/14"],
     "-dataset": [
-                    "celeba",
-                    "shapes3d"
+                    "dermamnist"
                 ],
-    "-wandb":[""],
+    #"-wandb":[""],
     #"-seed":["74","75","76","77","78"],
-    "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
+    "-seed":["42","43","44","45","46"],
 }
 
 labo_run_cub = {
     # GRID SEARCH PARAMETERS
-    
+    "-save_dir": [SAVE_DIR],
 
     # FIXED PARAMETERS
     "-model": ["labo"],
     "-dataset": ["cub"],
-    "-wandb":[""],
+    #"-wandb":[""],
     #"-seed":["74","75","76","77","78"],
-    "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
+    "-seed":["42","43","44","45","46"],
 }
 
 oracle_run = {
@@ -230,12 +235,12 @@ oracle_run_cub = {
     # FIXED PARAMETERS
     "-model": ["oracle"],
     "-dataset": ["cub"],
-    "-wandb":[""],
+    #"-wandb":[""],
     #"-seed":["74"]#["74","75","76","77","78"],
     "-seed":["2201","2202","2203","2204","2205","2206","2207","2208","2209","2210"],
 }
 
-runs = [oracle_run_cub, labo_run_cub,lfcbm_run_cub,vlg_run_cub,resnetcbm_run_cub]
+runs = [labo_run]
 
 
 import os
@@ -243,7 +248,7 @@ import os
 for run in runs:
     # Iterate over all combinations of parameters
     for combination in itertools.product(*run.values()):
-        command = f"CUDA_VISIBLE_DEVICES={CUDA_VISIBLE_DEVICES} python train.py"
+        command = f"python train.py"
         for i,key in enumerate(run.keys()):
                     command += f" {key}"
                     if str(combination[i]) != '':

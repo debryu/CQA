@@ -52,6 +52,9 @@ def train(args):
                                concept_set = args.concept_set, batch_size = args.batch_size, 
                                device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
+    
+    if args.backbone == 'resnet18_cub':
+        args.concept_set = 'cub_improved_concepts'
     target_save_name, clip_save_name, text_save_name = get_save_names(args.clip_name, args.backbone, 
                                             args.feature_layer,d_train, args.concept_set, "avg", args.activation_dir)
     val_target_save_name, val_clip_save_name, text_save_name =  get_save_names(args.clip_name, args.backbone,
@@ -86,6 +89,7 @@ def train(args):
         #test_clip_features = test_image_features @ text_features.T
 
         del image_features, text_features, val_image_features, test_image_features
+    
     
     #filter concepts not activating highly
     # For every concept (vary the samples, aka dim 0) take the top 5 values (the 5 samples that activated that concept the most)

@@ -244,6 +244,9 @@ def compute_f1_auc(predictions, labels):
     
     # The raw predictions are the entire test set
     preds_raw = (torch.nn.functional.sigmoid(predictions) > 0.5).int()
+    print(predictions[0:3])
+    print(preds_raw[0:3])
+    print(labels[0:3])
     
     # Store the concepts from all samples in a single tensor
     concept_pred_raw = []
@@ -280,6 +283,8 @@ def compute_f1_auc(predictions, labels):
         cr_calibrated = classification_report(concept_gt_calibrated[i], concept_pred_calibrated[i], output_dict=True)
         cr_raw = classification_report(concept_gt_raw[i], concept_pred_raw[i], output_dict=True)
         
+        if i in [38,39,40,41]:
+           print(classification_report(concept_gt_raw[i], concept_pred_raw[i]))
         acc_raw.append(cr_raw['accuracy'])  # type:ignore
         rec_raw.append(cr_raw['macro avg']['recall'])   # type:ignore
         prec_raw.append(cr_raw['macro avg']['precision'])   # type:ignore
@@ -296,6 +301,7 @@ def compute_f1_auc(predictions, labels):
         pr_aucs.append(res2.prauc0)
         min_pr_aucs.append(res2.min_auc)
         
+    print(f1_calibrated)
     res = { 'f1_cal': np.mean(f1_calibrated),
             'f1_raw': np.mean(f1_raw),
             'all_f1_cal': f1_calibrated,

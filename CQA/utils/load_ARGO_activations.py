@@ -22,38 +22,40 @@ def get_activations(seeds, datasets,acq_fns,kernels,Ks, results_folder = None):
     # Collect all experiments
     files = os.listdir(results_folder)
     for f in files:
-        date = f.split("-")[0]
-        # Parse components
-        year, month, day, hour, minute = map(int, date.split("_"))
+        if f.endswith(".json"):
+            date = f.split("-")[0]
+            # Parse components
+            year, month, day, hour, minute = map(int, date.split("_"))
 
-        # Create datetime, assume hour=0, second=0
-        dt = datetime(year, month, day, hour, minute, 0)
+            # Create datetime, assume hour=0, second=0
+            dt = datetime(year, month, day, hour, minute, 0)
 
-        # Convert to Unix timestamp
-        unix_time = dt.timestamp()
-        run = f.split("-")[1].replace(".json","")
-        seed = int(run.split("SEED=")[-1])
-        model = run.split("_")[0]
-        dataset = run.split("_")[1]
-        acq_fn = run.split("_")[2]
-        kernel = run.split("_")[3]
-        K = int(run.split("_")[4])
-        with open(os.path.join(results_folder,f), 'r') as jsonfile:
-            results_dict = json.load(jsonfile)
-        
-        if model == "SVGP":
-            experiments.append({
-                "path": f,
-                "time": dt,
-                "strtime": date,
-                "seed": seed,
-                "model":model,
-                "dataset":dataset,
-                "acq_fn":acq_fn,
-                "kernel":kernel,
-                "K":K,
-                "results": results_dict
-            })
+            # Convert to Unix timestamp
+            unix_time = dt.timestamp()
+            run = f.split("-")[1].replace(".json","")
+            seed = int(run.split("SEED=")[-1])
+            model = run.split("_")[0]
+            dataset = run.split("_")[1]
+            acq_fn = run.split("_")[2]
+            kernel = run.split("_")[3]
+            K = int(run.split("_")[4])
+            logger.debug(f"Attempting to open {os.path.join(results_folder,f)}")
+            with open(os.path.join(results_folder,f), 'r') as jsonfile:
+                results_dict = json.load(jsonfile)
+            
+            if model == "SVGP":
+                experiments.append({
+                    "path": f,
+                    "time": dt,
+                    "strtime": date,
+                    "seed": seed,
+                    "model":model,
+                    "dataset":dataset,
+                    "acq_fn":acq_fn,
+                    "kernel":kernel,
+                    "K":K,
+                    "results": results_dict
+                })
 
     run = []
     # find experiments that match the parameters

@@ -3,8 +3,8 @@
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=16
-#SBATCH --time=16:00:00
-#SBATCH --array=0-20%10           # Adjust based on #combinations and concurrency
+#SBATCH --time=22:00:00
+#SBATCH --array=0-72%10          # Adjust based on #combinations and concurrency
 #SBATCH --output=/leonardo_scratch/fast/IscrC_ARGO/results/logs/eval-slurm-%A_%a.out
 #SBATCH --error=/leonardo_scratch/fast/IscrC_ARGO/results/logs/eval-slurm-%A_%a.err
 
@@ -20,7 +20,7 @@ import traceback
 try:
     # Find all experiments
 
-    path = "results/fixed_models/CBM/cbmlite"
+    path = "results/CBMAT"
 
     FOLDER = os.path.join(os.environ['FAST'], path)
 
@@ -30,8 +30,11 @@ try:
         if f.endswith(".txt"):
             continue
         if "SEED" not in f:
+            if "competitors" in path:
+                experiments.append(f)
             continue
-        experiments.append(f)
+        else:
+            experiments.append(f)
 
     idx = int(os.environ['SLURM_ARRAY_TASK_ID'])
     e = experiments[idx]

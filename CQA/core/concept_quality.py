@@ -16,11 +16,53 @@ from CQA.metrics.leakage import leakage_collapsing, auto_leakage
 from CQA.utils.eval_models import train_LR_on_concepts
 from sklearn.ensemble import RandomForestClassifier
 from CQA.metrics.ois import oracle_impurity_score
+from CQA.metrics.ece import binary_ece_from_logits, cbm_concept_ece
 from CQA.config import LABELS, METRICS, REQUIRES_SIGMOID
 from CQA.utils.args_utils import load_args
 import wandb
 import traceback
 import argparse
+
+def masked_classification_report(predictions, ground_truth, thr):
+    """
+    predictions: torch.Tensor (logits or scores)
+    ground_truth: torch.Tensor (binary labels)
+    thr: float
+    """
+    from sklearn.metrics import classification_report
+    preds = predictions.detach().cpu()
+    gt = ground_truth.detach().cpu()
+
+    # Keep only predictions outside [-thr, thr]
+    keep_mask = (preds < -thr) | (preds > thr)
+
+    preds_kept = preds[keep_mask]
+    gt_kept = gt[keep_mask]
+
+    if preds_kept.numel() == 0:
+        raise ValueError("All predictions were masked out by the threshold.")
+
+    # Discretize predictions
+    # > 0 -> positive (1), <= 0 -> negative (0)
+    preds_bin = (preds_kept > 0).long()
+
+    # Normalize ground truth to {0,1} if needed
+    if gt_kept.min() < 0:
+        gt_bin = (gt_kept > 0).long()
+    else:
+        gt_bin = gt_kept.long()
+
+    # Convert to numpy (sklearn expects 1D arrays)
+    y_pred = preds_bin.view(-1).numpy()
+    y_true = gt_bin.view(-1).numpy()
+   
+    return classification_report(
+        y_true,
+        y_pred,
+        target_names=["negative", "positive"],
+        digits=4,
+        zero_division=0
+    )
 
 # TODO: Fix TEMP and add the correct target names
 # TODO: Count Imbalances for each ds once
@@ -43,10 +85,22 @@ class CONCEPT_QUALITY():
         self.label_freq = json.load(open(os.path.join(self.model.args.load_dir,"train_label_freq.txt")))
     self.metrics = {}
 
+  
+  
   def store_output(self):
     logger.debug(f"Storing output for all splits.")
     self.output = self.model.run('test')
     self.output_train = self.model.run('train')
+    print(self.output['concepts_pred'][0:5])
+    
+    #pred_probs = torch.nn.functional.sigmoid(self.output_train['concepts_pred'])
+    #uncertainty = torch.minimum(pred_probs, 1.0 - pred_probs)
+    #topk, topk_idx = torch.topk(uncertainty, len(self.output_train)//3, largest=True)
+    #print(topk)
+    #print(len(topk))
+    #thr = torch.log(topk[-1]/(1-topk[-1]))
+    #print(thr)
+    #print(masked_classification_report(self.output_train['concepts_pred'], self.output_train['concepts_gt'], thr))
     self.output_val = self.model.run('val')
     logger.debug(f"Output stored in CQA object.")
     self.save()
@@ -145,7 +199,10 @@ class CONCEPT_QUALITY():
     '''
     print(self.output['concepts_pred'])
     m = compute_f1_auc(self.output['concepts_pred'], self.output['concepts_gt'])  # type:ignore
+    ece = cbm_concept_ece(self.output['concepts_pred'], self.output['concepts_gt'])
+    logger.warning(ece)
     self.metrics.update(m)
+    self.metrics.update(ece)
     self.save()
     return m
   
@@ -257,6 +314,8 @@ def initialize_CQA(folder_path, args, split = 'test'):
     logger.debug(f"Loading args from {folder_path}")
     args.load_dir = folder_path
     args = load_args(args)
+    if not hasattr(args, 'model'):
+      args.model = 'argo'
     # Load model
     model = get_model(args)
     logger.debug(f"Model loaded: {model}")

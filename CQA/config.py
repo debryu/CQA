@@ -10,7 +10,7 @@ SAVED_MODELS_FOLDER = {
 }
 
 ACTIVATIONS_PATH = {
-  "shared":"./data/activations/",
+  "shared":"/leonardo_scratch/fast/IscrC_ARGO/activations/clip",
     #"shared":"/mnt/cimec-storage6/shared/assembly/data/activations/",   # Share the activations between models and runs to save space
     "default":"",                     # Save the activation in each of the model folders
 }

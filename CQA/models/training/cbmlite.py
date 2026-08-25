@@ -30,6 +30,7 @@ def train_cbm(args, model_class,train_loader,val_loader):
         elif args.loss_fn == 'kl':
             loss_fn_m = torch.nn.KLDivLoss()
     else:
+        logger.warning(f"Using BCE loss")
         loss_fn_m = torch.nn.BCEWithLogitsLoss(reduction='mean')
     
     

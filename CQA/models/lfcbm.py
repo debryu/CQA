@@ -35,7 +35,7 @@ class _Model(torch.nn.Module):
             
         self.proj_layer = torch.nn.Linear(in_features=W_c.shape[1], out_features=W_c.shape[0], bias=False).to(device)
         self.proj_layer.load_state_dict({"weight":W_c})
-            
+
         self.proj_mean = proj_mean
         self.proj_std = proj_std
         
@@ -48,7 +48,9 @@ class _Model(torch.nn.Module):
         pass
         
     def forward(self, x):
+        
         x = self.backbone(x)
+        
         x = torch.flatten(x, 1)
         x = self.proj_layer(x)
         concepts = x

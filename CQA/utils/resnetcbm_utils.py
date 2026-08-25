@@ -22,25 +22,40 @@ def get_activations_and_targets(model_class,dataset_name,split,args):
     targets = []
     concepts = [] 
     gt_concetps = []
+    concept_means = []
+    concept_vars = []
     model = model_class.model
     model.eval().to(args.device)
     with torch.no_grad():
         loader = torch.utils.data.DataLoader(data, batch_size=1024, shuffle=False)
         logger.debug(f"Number of examples: {n_examples}")
         for batch in tqdm(loader, desc='Running model'):
-            imgs, cs, labels = batch
+            if len(batch) == 6:
+                imgs, cs, stds, means, vars, labels = batch
+                concept_means.append(means.cpu())
+                concept_vars.append(vars.cpu())
+            elif len(batch) == 4:
+                imgs, cs, stds, labels = batch
+            else:
+                imgs, cs, labels = batch
+            
             label = labels.long()
             imgs = imgs.to(args.device)
             output = model(imgs)
             targets.append(label.cpu())
+            #logger.error(torch.nn.functional.sigmoid(output['concepts']))
             concepts.append(output['concepts'].cpu())
             gt_concetps.append(cs.cpu())
-   
+    
     targets = torch.cat(targets, dim=0)
     concepts = torch.cat(concepts, dim=0)
     gt_concetps = torch.cat(gt_concetps, dim=0)
+    if len(concept_means) > 0:
+        concept_means = torch.cat(concept_means, dim=0)
+        concept_vars = torch.cat(concept_vars, dim=0)
+
     logger.debug(f"Targets shape: {targets.shape}, Concepts shape: {concepts.shape}, GT Concepts shape: {gt_concetps.shape}")
-    return {'concepts':concepts,'targets':targets,'gt_concepts':gt_concetps, 'n_examples':n_examples}
+    return {'concepts':concepts,'targets':targets,'gt_concepts':gt_concetps, 'concept_means':concept_means, 'concept_vars':concept_vars,'n_examples':n_examples}
 
 class DeepLearningModel(torch.nn.Module):
     def __init__(self, args):
@@ -289,7 +304,8 @@ class PretrainedResNetModel(DeepLearningModel):
         super().__init__(args)
         self.dropout = args.dropout_prob
         self.device = args.device
-        self.fc_layers = [1000,args.num_c]
+        self.fc_layers = getattr(args, 'fc_layers', [1000, args.num_c])
+        
         self.pretrained_path = None
         self.pretrained_model_name = args.backbone
         self.pretrained_exclude_vars = None
@@ -314,8 +330,10 @@ class PretrainedResNetModel(DeepLearningModel):
                 conv_layer_substring = get_conv_layer_substring(name)
                 if conv_layer_substring in layers_to_unfreeze:
                     param.requires_grad = True
+                    logger.debug(f"{name} is unfrozen")
                 else:
                     param.requires_grad = False  # Enable training
+                    logger.debug(f"{name} is frozen")
             
             self.fc_layers = [args.num_c]
             #self.linear = torch.nn.Linear(200,1000)
@@ -476,6 +494,7 @@ class PretrainedResNetModel(DeepLearningModel):
 
         # Public pretrained ResNet model
         N_layers = len(self.fc_layers)
+        print(self.fc_layers)
         if N_layers > 1 or self.fc_layers[0] != 1000: # Check if it is default model
             logger.debug('Loading pretrained ResNet')
             incompatible, unexpected = self.load_state_dict(
@@ -501,7 +520,9 @@ class PretrainedResNetModel(DeepLearningModel):
         logger.debug("All conv layers", all_conv_layers)
 
         # Now look conv_layers_before_end_to_unfreeze conv layers before the end, and unfreeze all layers after that.
-        assert conv_layers_before_end_to_unfreeze <= len(all_conv_layers)
+        if conv_layers_before_end_to_unfreeze > len(all_conv_layers):
+            conv_layers_before_end_to_unfreeze = len(all_conv_layers)
+            
         if conv_layers_before_end_to_unfreeze > 0:
             conv_layers_to_unfreeze = all_conv_layers[-conv_layers_before_end_to_unfreeze:]
         else:

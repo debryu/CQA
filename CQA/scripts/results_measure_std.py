@@ -7,11 +7,14 @@ import matplotlib.pyplot as plt
 from loguru import logger
 FAST_STORAGE = os.environ["FAST"]
 MODELS = [
-    f"{FAST_STORAGE}/results/fixed_models/CBM/argo_random",
-    f"{FAST_STORAGE}/results/fixed_models/CBM/argo_ucbf",
-    f"{FAST_STORAGE}/results/fixed_models/CBM/argo_ucbf1",
+    #f"{FAST_STORAGE}/results/fixed_models/CBM/argo_random",
+    #f"{FAST_STORAGE}/results/fixed_models/CBM/argo_ucbf",
+    #f"{FAST_STORAGE}/results/fixed_models/CBM/argo_ucbf1",
     #f"{FAST_STORAGE}/results/fixed_models/CBM/argo_random_ce",
-    f"{FAST_STORAGE}/results/fixed_models/CBM/cbmlite",
+    #f"{FAST_STORAGE}/results/fixed_models/CBM/cbmlite",
+    f"{FAST_STORAGE}/results/ICML/CBM/argo",
+    f"{FAST_STORAGE}/results/ICML/CBM/cbmlite",
+    f"{FAST_STORAGE}/results/ICML/CBM/competitors",
 ]
 
 used_metrics = ['label_f1', 'f1_cal', 'rocauc', 'disentanglement']
@@ -70,7 +73,7 @@ for path in MODELS:
         for key, value in metrics.items():
             args[key] = value
         
-        if model != 'cbmlite':
+        if model in ['argo']:
             temp_name = args['argo_train']
             args['acq_fn'] = temp_name.split("-")[3]
             args['kernel'] = temp_name.split("-")[4]
@@ -81,13 +84,15 @@ for path in MODELS:
         experiments.append(args)
     
 df = pd.DataFrame(experiments)
+print(df)
+
 
 def get_metrics():
     
     return {
         "label_f1": "label_f1",
         "disentanglement": "disentanglement",
-        "f1_cal": "f1_cal",
+        "f1_raw": "f1_raw",
         "roc_auc": "roc_auc",
         "pr_auc": "pr_auc",
     }
@@ -142,16 +147,21 @@ def plot_metric_with_errorbars(
 def plot():
     output_dir = f"{FAST_STORAGE}/results/figs"
     for ds, color in zip(['shapes3d', 'celeba','dermamnist','cub'],['red','red','red','red']):
-        df_filtered_argo_random = df[(df['dataset'] == ds) & (df['model'] == 'argo')  & (df['acq_fn'] == 'random') & (df['loss_fn'] == 'js')]
+        #df_filtered_argo_random = df[(df['dataset'] == ds) & (df['model'] == 'argo')  & (df['acq_fn'] == 'random') & (df['loss_fn'] == 'js')]
         #df_filtered_argo_random_ce = df[(df['dataset'] == ds) & (df['model'] == 'argo')  & (df['acq_fn'] == 'random') & (df['loss_fn'] == 'ce')]
-        df_filtered_argo_ucbf = df[(df['dataset'] == ds) & (df['model'] == 'argo')  & (df['acq_fn'] == 'ucbf') & (df['loss_fn'] == 'js')] 
-        df_filtered_argo_ucbf1 = df[(df['dataset'] == ds) & (df['model'] == 'argo')  & (df['acq_fn'] == 'ucbf1') & (df['loss_fn'] == 'js')]
+        #df_filtered_argo_ucbf = df[(df['dataset'] == ds) & (df['model'] == 'argo')  & (df['acq_fn'] == 'ucbf') & (df['loss_fn'] == 'js')] 
+        #df_filtered_argo_ucbf1 = df[(df['dataset'] == ds) & (df['model'] == 'argo')  & (df['acq_fn'] == 'ucbf1') & (df['loss_fn'] == 'js')]
         df_filtered_cbmlite = df[(df['dataset'] == ds) & (df['model'] == 'cbmlite')]
-    
+        df_filtered_argo = df[(df['dataset'] == ds) & (df['model'] == 'argo')]
+        df_filtered_resnet = df[(df['dataset'] == ds) & (df['model'] == 'resnetcbm')]
+        df_filtered_labo = df[(df['dataset'] == ds) & (df['model'] == 'labo')]
+        df_filtered_lfcbm = df[(df['dataset'] == ds) & (df['model'] == 'lfcbm')]
+        df_filtered_vlgcbm = df[(df['dataset'] == ds) & (df['model'] == 'vlgcbm')]
+
         for metric, ylabel in get_metrics().items():
             out_file = os.path.join(output_dir, f"{ds}_{metric}_vs_poolsize.png")
-            models = [df_filtered_argo_random, df_filtered_argo_ucbf, df_filtered_argo_ucbf1, df_filtered_cbmlite]
-            model_names = ['argo-random','argo-ucbf','argo-ucbf1','cbm-at']#,'argo-ucb','argo-ucb1']
+            models = [df_filtered_argo,df_filtered_cbmlite]
+            model_names = ['argo-random','cbm-at']#,'argo-ucb','argo-ucb1']
             plot_metric_with_errorbars(
                 models = models,
                 model_names=model_names,
@@ -165,36 +175,36 @@ plot()
 
 TABLE_SPEC = {
     "shapes3d": [
-        ("CBM @ $100\\%$", "CBM@100"),
-        ("CBM @ $0.88\\%$", "CBM@0.88"),
-        ("LABO", "LABO"),
-        ("LFCBM", "LFCBM"),
-        ("VLGCBM", "VLGCBM"),
-        ("\\method @ $420$", "argo@420"),
+        ("\\CBM @ $100\\%$", "resnetcbm"),
+        ("\\CBM @ $0.88\\%$", "cbmlite@360"),
+        ("\\LABO", "labo"),
+        ("\\LFCBM", "lfcbm"),
+        ("\\VLGCBM", "vlgcbm"),
+        ("\\method @ $420$", "argo@360"),
     ],
     "celeba": [
-        ("CBM @ $100\\%$", "CBM@100"),
-        ("CBM @ $1.0\\%$", "CBM@1.0"),
-        ("LABO", "LABO"),
-        ("LFCBM", "LFCBM"),
-        ("VLGCBM", "VLGCBM"),
-        ("\\method @ $390$", "argo@390"),
+        ("\\CBM @ $100\\%$", "resnetcbm"),
+        ("\\CBM @ $1.0\\%$", "cbmlite@360"),
+        ("\\LABO", "labo"),
+        ("\\LFCBM", "lfcbm"),
+        ("\\VLGCBM", "vlgcbm"),
+        ("\\method @ $390$", "argo@360"),
     ],
     "dermamnist": [
-        ("CBM @ $100\\%$", "CBM@100"),
-        ("CBM @ $3.2\\%$", "CBM@3.2"),
-        ("LABO", "LABO"),
-        ("LFCBM", "LFCBM"),
-        ("VLGCBM", "VLGCBM"),
-        ("\\method @ $112$", "argo@112"),
+        ("\\CBM @ $100\\%$", "resnetcbm"),
+        ("\\CBM @ $3.2\\%$", "cbmlite@360"),
+        ("\\LABO", "labo"),
+        ("\\LFCBM", "lfcbm"),
+        ("\\VLGCBM", "vlgcbm"),
+        ("\\method @ $112$", "argo@360"),
     ],
     "cub": [
-        ("CBM @ $100\\%$", "CBM@100"),
-        ("CBM @ $10\\%$", "CBM@10"),
-        ("LABO", "LABO"),
-        ("LFCBM", "LFCBM"),
-        ("VLGCBM", "VLGCBM"),
-        ("\\method @ $10\\%$", "argo@10"),
+        ("\\CBM @ $100\\%$", "resnetcbm"),
+        ("\\CBM @ $4.8\\%$", "cbmlite@360"),
+        ("\\LABO", "labo"),
+        ("\\LFCBM", "lfcbm"),
+        ("\\VLGCBM", "vlgcbm"),
+        ("\\method @ $4.8\\%$", "argo@360"),
     ],
 }
 
@@ -215,15 +225,25 @@ def latex_row(df, dataset, model_key, model_label):
     
 
     fy = mean_std(sub, "label_f1")
-    mpr = mean_std(sub, "avg_macro_pr_auc")
+    fc = mean_std(sub, "f1_raw")
+    rocauc = mean_std(sub, 'roc_auc')
     dis = mean_std(sub, "disentanglement")
 
     return (
         f"& {model_label}\n"
-        f"    & ${fy}$\n"
-        f"    & ${mpr}$\n"
-        f"    & ${dis}$ \\\\\n"
+        f"    & ${fy}$     %FY  \n"
+        f"    & ${fc}$     %F1C \n"
+        f"    & ${rocauc}$ %ROCAUC     \n"
+        f"    & ${dis}$   \\\\ %DIS \n"
     )
+
+
+for dataset, rows in TABLE_SPEC.items():
+    dataset_macro = dataset.upper() if dataset != "dermamnist" else "DERMA"
+    for i, (label, key) in enumerate(rows):
+        print(dataset_macro)
+        print(latex_row(df, dataset, key, label))
+    print("--------------------------------------------------")
 
 def write_latex_table(df, output): 
     with open(output, "w") as f:
@@ -241,6 +261,9 @@ def write_latex_table(df, output):
 
             for i, (label, key) in enumerate(rows):
                 f.write(latex_row(df, dataset, key, label))
+                print(latex_row)
+
+
                 if i == 1:
                     f.write("\\cmidrule{2-5}\n")
 

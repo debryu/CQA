@@ -2,7 +2,11 @@ import torch
 from torchvision import models
 import torch.utils.model_zoo as model_zoo
 from pytorchcv.model_provider import get_model as ptcv_get_model
+from CQA.utils.clip import load
 
+clip_models = ['RN50',"ViT-B/16","ViT-L/14"]
+for model in clip_models:
+    load(model)
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',

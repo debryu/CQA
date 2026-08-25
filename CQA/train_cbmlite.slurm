@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=train_cbmlite
+#SBATCH --job-name=cub_cbmlite
 #SBATCH --partition=boost_usr_prod
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
 #SBATCH --time=16:00:00
-#SBATCH --array=0-5%5            # Adjust based on #combinations and concurrency
+#SBATCH --array=0-21%7            # Adjust based on #combinations and concurrency
 #SBATCH --output=/leonardo_scratch/fast/IscrC_ARGO/results/logs/train-slurm-%A_%a.out
 #SBATCH --error=/leonardo_scratch/fast/IscrC_ARGO/results/logs/train-slurm-%A_%a.err
 
@@ -18,18 +18,18 @@ python - <<'END'
 import os, itertools, subprocess, datetime
 import traceback
 try:
-    datasets = ['celeba']
-    seeds = [5]#,8,13,21]
+    datasets = ['cub']
+    seeds = [123,321,231]
     n_concepts_run = 7
     base = 42
     if datasets[0] == 'dermamnist':
-        Ks = [49,63,77,112,224]
+        Ks = [40,100,160,220,280,340,400]
     elif datasets[0] == 'celeba':
-        Ks = [78,117,156,195,390]
+        Ks = [40,100,160,220,280,340,400]
     elif datasets[0] == 'shapes3d':
-        Ks = [84,126,168,210,420]
+        Ks = [40,100,160,220,280,340,400]
     elif datasets[0] == 'cub':
-        Ks = [127,232,337,412,487]
+        Ks = [40,100,160,220,280,340,400]
     else:
         Ks = [base+n_concepts_run*1, base+n_concepts_run*2, base+n_concepts_run*3, base+n_concepts_run*4, base+n_concepts_run*5,base+n_concepts_run*10]
     combinations = list(itertools.product(seeds, datasets, Ks))
@@ -56,9 +56,10 @@ try:
                                     "-m", "cbmlite",
                                     "-d", ds_name,
                                     "-backbone", "resnet18_cub",
-                                    "-unfreeze", "5",
-                                    "-val_interval", "4",
-                                    "-patience", "4",
+                                    "-unfreeze", "0",
+                                    "-val_interval", "10",
+                                    "-patience", "2",
+                                    "-n_epochs", "1000",
                                     "-seed", str(seed),
                                     "-subset_size", str(K)
                                     ], env=env, capture_output=True, text=True)
@@ -66,10 +67,11 @@ try:
             result = subprocess.run(["python", 
                                     "train.py", 
                                     "-m", "cbmlite",
-                                    "-unfreeze", "5",
+                                    "-unfreeze", "0",
                                     "-d", ds_name,
-                                    "-val_interval", "4",
-                                    "-patience", "4",
+                                    "-val_interval", "10",
+                                    "-patience", "2",
+                                    "-n_epochs", "1000",
                                     "-seed", str(seed),
                                     "-subset_size", str(K)
                                     ], env=env, capture_output=True, text=True)

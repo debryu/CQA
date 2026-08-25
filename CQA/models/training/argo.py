@@ -13,6 +13,7 @@ from CQA.config import folder_naming_convention, ACTIVATIONS_PATH, CONCEPT_SETS,
 from CQA.datasets import GenericDataset
 from CQA.models.base import BaseModel
 from CQA.models.resnetcbm import RESNETCBM
+from CQA.models.argo import ARGO
 from torch.utils.data import DataLoader, TensorDataset
 from CQA.models.glm_saga.elasticnet import IndexedTensorDataset, IndexedDataset, glm_saga
 from CQA.utils.utils import log_train
@@ -21,11 +22,81 @@ from CQA.datasets.utils import compute_imbalance
 from CQA.utils.resnetcbm_utils import get_activations_and_targets
 from CQA.utils.args_utils import save_args
 from sklearn.svm import LinearSVC
+import math
 
 
 # -----------------------------
 # Loss utilities
 # -----------------------------
+
+def probability_via_heat_function(mu, var):
+    den = (1 + (math.pi/8)*var)**0.5
+    return torch.nn.functional.sigmoid(mu/den)
+
+def k(mu,var, eps = 1e-06):
+    std = var**0.5 + eps
+    return abs(mu)/std
+'''
+def ce_weight(k, alpha, beta):
+    return k**beta/(k**beta + alpha)
+
+def ce_weight_cp(k, critical_point, beta):
+    return ce_weight(k, critical_point**beta, beta)
+
+def compute_weights(mu,var,critical_point,beta):
+    parameter_k = k(mu,var)
+    #print(probability_via_heat_function(mu, var)[0])
+    #print(parameter_k[0])
+    return ce_weight_cp(parameter_k, critical_point=critical_point, beta=beta)
+'''
+def ce_weight(k, alpha, beta, mask):
+    weights = torch.ones(k.shape)
+    weights[mask] = k[mask]**beta/(k[mask]**beta + alpha)
+    return weights
+
+def ce_weight_pug(p, device, mask = None, eps = 1e-06):
+    max_vals = torch.minimum(p, 1 - p)
+    #print(max_vals.shape)
+    weights = torch.ones(p.shape).to(device) / (max_vals + eps)
+    if mask is not None:
+        #logger.warning(f"masking {torch.sum(mask)} entries")
+        weights[mask] = 0
+    return weights
+
+def ce_weight_2(k, mask, acceptance1 = 1.5, acceptance2 = 2):
+    k_flat = k.view(-1)
+    k_sorted, _ = torch.sort(k_flat, descending=True)
+    acceptance2 = k_sorted[len(k_flat)//(len(k_flat)*0.9)]   # 0-based index
+    acceptance1 = k_sorted[len(k_flat)//70]
+    weights = torch.ones(k.shape)
+    not_accepted = (k < acceptance2).bool()
+    rescaling = k[not_accepted]- acceptance1
+    negative = (rescaling < 0)
+    rescaling[negative] = 0 
+    weights[not_accepted] = 1- (1-(rescaling/(acceptance2-acceptance1))**2)**0.5
+    return weights
+
+def compute_weights2(mu,var):
+    parameter_k = k(mu,var)
+    mask = (mu != 100).bool()
+    print(torch.sum(mask))
+    print(mu.shape)
+    #print(probability_via_heat_function(mu, var)[0])
+    #print(torch.min(parameter_k),torch.max(parameter_k))
+    #print(ce_weight_cp(parameter_k, critical_point=critical_point, beta=beta, mask=mask))
+    return ce_weight_2(parameter_k, mask=mask)
+
+def ce_weight_cp(k, critical_point, beta, mask):
+    return ce_weight(k, critical_point**beta, beta, mask)
+
+def compute_weights(mu,var,critical_point,beta):
+    parameter_k = k(mu,var)
+    mask = (mu != 100).bool()
+    #print(probability_via_heat_function(mu, var)[0])
+    #print(torch.min(parameter_k),torch.max(parameter_k))
+    #print(ce_weight_cp(parameter_k, critical_point=critical_point, beta=beta, mask=mask))
+    return ce_weight_cp(parameter_k, critical_point=critical_point, beta=beta, mask=mask)
+
 class JSD(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -51,130 +122,27 @@ def compute_js(logits, gt, epsilon=0.001):
 # -----------------------------
 # Main CBM training
 # -----------------------------
-def train_cbm(args, model_class, train_loader, val_loader):
-
-    device = torch.device(args.device)  # <<< FIX >>>
-
-    train_model = model_class.model
-    train_model.to(device)              # <<< FIX >>>
-
-    optimizer = torch.optim.Adam(train_model.parameters(), lr=0.0001)
-
-    best_loss = float("inf")
-    patience = 0
-
-    train_model.train()
-    train_model.backbone.train()
-
-    for e in range(args.n_epochs):
-        train_loss = []
-        
-        for imgs, concepts, labels in tqdm(train_loader, desc=f"Epoch {e}"):
-
-            imgs = imgs.to(device, non_blocking=True)                     # <<< FIX >>>
-            concepts = concepts.to(device, dtype=torch.float32,
-                                    non_blocking=True)                    # <<< FIX >>>
-
-            optimizer.zero_grad()
-
-            output = train_model.backbone(imgs)
-            if args.loss_fn == 'js':
-                loss_m = compute_js(output, concepts)
-            elif args.loss_fn == 'ce':
-                loss_fn = torch.nn.BCEWithLogitsLoss(reduction='mean')
-                loss_m = loss_fn(output, concepts)
-            else:
-                raise NotImplementedError()
-            
-            train_loss.append(loss_m.item())
-            loss_m.backward()
-            optimizer.step()
-
-        train_loss = np.mean(train_loss)
-
-        if e % args.val_interval == 0:
-            val_loss = []
-
-            train_model.eval()
-            with torch.no_grad():                                          # <<< FIX >>>
-                for imgs, concepts, labels in tqdm(val_loader,
-                                                    desc=f"Validation {e}"):
-
-                    imgs = imgs.to(device, non_blocking=True)              # <<< FIX >>>
-                    concepts = concepts.to(device, dtype=torch.float32,
-                                            non_blocking=True)             # <<< FIX >>>
-
-                    output = train_model.backbone(imgs)
-                    if args.loss_fn == 'js':
-                        loss = compute_js(output, concepts)
-                    elif args.loss_fn == 'ce':
-                        loss_fn = torch.nn.BCEWithLogitsLoss(reduction='mean')
-                        loss = loss_fn(output, concepts)
-                    else:
-                        raise NotImplementedError()
-                    val_loss.append(loss.item())
-
-            train_model.train()
-            val_loss = np.mean(val_loss)
-
-            if np.isnan(val_loss) or np.isnan(train_loss):
-                break
-
-            if val_loss < best_loss:
-                best_loss = val_loss
-                torch.save(
-                    train_model.backbone.state_dict(),
-                    os.path.join(args.save_dir,
-                                 f"best_backbone_{args.model}.pth")
-                )
-                patience = 0
-                logger.info(f"Best model at epoch {e}")
-            else:
-                patience += 1
-
-            if patience > args.patience:
-                break
-
-            log_train(e, args, train_loss=train_loss, val_loss=val_loss)
-        else:
-            log_train(e, args, train_loss=train_loss)
-
-    save_args(args)
-
-    # -----------------------------
-    # Load best backbone safely
-    # -----------------------------
-    state = torch.load(                                             # <<< FIX >>>
-        os.path.join(args.save_dir, f"best_backbone_{args.model}.pth"),
-        map_location="cpu",
-        weights_only=True,
-    )
-    train_model.backbone.load_state_dict(state)
-    train_model.backbone.to(device)                                  # <<< FIX >>>
-    train_model.eval()
-
-    # -----------------------------
-    # Feature extraction
-    # -----------------------------
-    train_activ_dict = get_activations_and_targets(
-        model_class, args.dataset, "train", args
-    )
-    val_activ_dict = get_activations_and_targets(
-        model_class, args.dataset, "val", args
-    )
-    test_activ_dict = get_activations_and_targets(
-        model_class, args.dataset, "test", args
-    )
-
-    train_y = torch.LongTensor(train_activ_dict["targets"])
-    val_y = torch.LongTensor(val_activ_dict["targets"])
-    test_y = torch.LongTensor(test_activ_dict["targets"])
-
-    indexed_train_ds = IndexedTensorDataset(
-        train_activ_dict["concepts"], train_y
-    )
-    val_ds = TensorDataset(val_activ_dict["concepts"], val_y)
-    test_ds = TensorDataset(test_activ_dict["concepts"], test_y)
+def train_cbm(args, model_class):
+    train_x, train_y = model_class.backbone.get_concepts_and_labels('train')
+    test_x, test_y = model_class.backbone.get_concepts_and_labels('test')
+    val_x, val_y = model_class.backbone.get_concepts_and_labels('val')
+    
+    print(train_x.shape)
+    print(test_x.shape)
+    print(val_x.shape)
+    
+    ddd = GenericDataset(ds_name = 'shapes3d', split='test')
+    for i in range(len(ddd)):
+        print(test_x[i],ddd[i][1])
+    asd
+    train_y = torch.LongTensor(train_y)
+    val_y = torch.LongTensor(val_y)
+    test_y = torch.LongTensor(test_y.long())
+    
+    print(train_x.shape, train_y.shape)
+    indexed_train_ds = IndexedTensorDataset(train_x.float(), train_y)
+    val_ds = TensorDataset(val_x.float(), val_y)
+    test_ds = TensorDataset(test_x.float(), test_y)
 
     indexed_train_loader = DataLoader(
         indexed_train_ds,
@@ -194,9 +162,9 @@ def train_cbm(args, model_class, train_loader, val_loader):
     # Linear model (CPU on purpose)
     # -----------------------------
     linear = torch.nn.Linear(
-        train_activ_dict["concepts"].shape[1],
+        train_x.shape[1],
         len(classes_)
-    )                                                                # <<< FIX >>>
+    )                                                               
 
     linear.weight.data.zero_()
     linear.bias.data.zero_()
@@ -218,7 +186,7 @@ def train_cbm(args, model_class, train_loader, val_loader):
             test_loader=test_loader,
             do_zero=False,
             metadata=metadata,
-            n_ex=train_activ_dict["n_examples"],
+            n_ex=train_x.shape[0],
             n_classes=len(classes_),
         )
 
@@ -244,61 +212,59 @@ def train_cbm(args, model_class, train_loader, val_loader):
 
     torch.save(W_g, os.path.join(args.save_dir, "W_g.pt"))
     torch.save(b_g, os.path.join(args.save_dir, "b_g.pt"))
-
+    torch.save((train_x,train_y),os.path.join(args.save_dir, "train.pt"))
+    torch.save((test_x,test_y),os.path.join(args.save_dir, "test.pt"))
+    torch.save((val_x,val_y),os.path.join(args.save_dir, "val.pt"))
     return args
 
+def train_head(args, model_class, train_loader, val_loader, concept_id):
+    pass
 
-def prepare_cbm(args):
-    # Get only the number of concepts, take the smallest ds
-    args.num_classes = len(LABELS[args.dataset.split('_')[0]])
-    #data = get_dataset(args.dataset, split='val', transform=None)
-    data = GenericDataset(args.dataset, split='val')
+
+def prepare_cbm(args, alpha):
+    data = GenericDataset(args.dataset, split='train')
+    data_test = GenericDataset(args.dataset, split='test')
+    data_val = GenericDataset(args.dataset, split='val')
+    
     args.val_size = data.total_samples
     args.num_c = data[0][1].shape[0]
-    print(args.num_c)
-    if args.num_c <= 1:
-        logger.warning("Bottleneck size equal to 1. Setting the bottleneck size to 128 as default.")
-        args.num_c = 128
-    del data
-
-    model_class = RESNETCBM(args)
-    train_model = model_class.model
-    logger.info(f"Model: {train_model}")
-    for name, param in train_model.named_parameters():
-        logger.debug(f"{name}: requires_grad={param.requires_grad}")
-    #trained_model = PretrainedResNetModel(args)
-    transform = model_class.get_transform(split = 'train')
-    #logger.debug(f"Train transform: {str(transform)}")
-    args.transform = str(transform)
-    data = GenericDataset(args.dataset, split='train')
-    #data = get_dataset(args.dataset, split='train', transform=transform)
-    args.train_size = len(data)
-
-    #normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     #std=[0.229, 0.224, 0.225])
+    model_class = ARGO(args)
     
-    #sampler = torch.utils.data.BatchSampler(ImbalancedDatasetSampler(data,fr), batch_size=512, drop_last=True)
-    train_loader = torch.utils.data.DataLoader(data, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True, persistent_workers=True)
-    logger.debug(f"Size of train loader: {len(train_loader)}")
-    val_transform = transform #model_class.get_transform(split = 'val')
-    #logger.debug(f"Validation transform: {str(val_transform)}")
-    val_data = GenericDataset(args.dataset, split='val')
-    #val_data = get_dataset(args.dataset, split='val', transform=val_transform)
-    args.val_transform = str(val_transform)
-    val_loader = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=True, persistent_workers=True)
-    logger.debug(f"Size of val loader: {len(val_loader)}")
-    return train_cbm(args, model_class, train_loader, val_loader)
+    model_class.backbone.set_ds(data, data_val, data_test)
+    train_model = model_class.model
+    
+    args.train_size = len(data)
+    
+    return train_cbm(args, model_class)
 
 def train(args):
     ds = args.dataset.split('_')[0]
-    dataset_train = torch.load(args.argo_train, weights_only=False, map_location='cpu')
-    dataset_val = torch.load(args.argo_val, weights_only=False, map_location='cpu')
+    logger.debug("Loading ARGO activations")
+    dataset_train = torch.load("/leonardo_scratch/fast/IscrC_ARGO/models/argo_train.pt", weights_only=False, map_location='cpu')
+    dataset_val = torch.load("/leonardo_scratch/fast/IscrC_ARGO/models/argo_val.pt", weights_only=False, map_location='cpu')
+    dataset_test = torch.load("/leonardo_scratch/fast/IscrC_ARGO/models/argo_test.pt", weights_only=False, map_location='cpu')
+    
+    experiments_folder = "/leonardo_scratch/fast/IscrC_ARGO/results/GPs/GPs"
+    K = 340
+    #_, _, K, acq_fn, kernel, seedAndDate = args.argo_train.split("-")
+    #seed = seedAndDate.split("_")[0]
+    #date = seedAndDate.replace(f"{seed}_","").replace(".pt","")
+    #experiment_json = f"{date}-SVGP_{ds}_{acq_fn}_{kernel}_40__SEED={seed}.json"
+    import json
+    with open(os.path.join(experiments_folder,"2026_02_13_18_11-MCSVGP_shapes3d_randomc_RBF_150__LOGS.json"), 'r') as jsonfile:
+        results_dict = json.load(jsonfile)
+    for r in results_dict:
+        if r['training_pool_size'] == int(K):
+            training_pool = r['training_pool']
+            print(training_pool)
+            break
+    
     logger.debug(f"The size of train is: {len(dataset_train)}")
     logger.debug(f"The size of val is: {len(dataset_val)}")
     args.num_classes = len(LABELS[args.dataset.split('_')[0]])
-    ori_train = GenericDataset(args.dataset, split='train', transform=BaseModel.get_transform(split='train'))
-    ori_val = GenericDataset(args.dataset, split='val', transform=BaseModel.get_transform(split='val'))
-    ori_test = GenericDataset(args.dataset, split='test', transform=BaseModel.get_transform(split='test'))
+    ori_train = GenericDataset(ds_name=ds, split='train', transform=ARGO.get_transform(split='train'))
+    ori_val = GenericDataset(ds_name=ds, split='val', transform=ARGO.get_transform(split='val'))
+    ori_test = GenericDataset(ds_name=ds, split='test', transform=ARGO.get_transform(split='test'))
     args.num_c = len(dataset_train[0][1])
     
     # This will not persist, as it is created runtime
@@ -309,35 +275,53 @@ def train(args):
 
         def __init__(self,**kwargs):
             split = kwargs.get('split')
+            self.training_pool = training_pool
+            
             self.split = split
             self.n_concepts = args.num_c
             super().__init__()
+            
             if split == 'train':
-                self.ds = dataset_train
+                #Merge the train and val data, since val data is not really "ground truth" and does not give any information on the loss
+                self.argo_ds = dataset_train
+                #self.argo_ds = dataset_train + dataset_val
                 self.original_data = ori_train
+                #self.original_data = ori_train + ori_val 
             elif split == 'val' or split == 'valid':
-                self.ds = dataset_val
+                self.argo_ds = dataset_val
                 self.original_data = ori_val
             elif split == 'test':
+                self.argo_ds = dataset_test
                 self.original_data = ori_test
             else:
                 raise NotImplementedError(f"Split {split} not implemented")
             
             if split != 'test':
-                if len(self.ds) != len(self.original_data):
-                    logger.error(f"On split {split}, len of annotated dataset = {len(self.ds)} must be the same as len of the original dataset = {len(self.original_data)}")
-                assert len(self.ds) == len(self.original_data)
+                if len(self.argo_ds) != len(self.original_data):
+                    logger.error(f"On split {split}, len of annotated dataset = {len(self.argo_ds)} must be the same as len of the original dataset = {len(self.original_data)}")
+                print(len(self.argo_ds),len(self.original_data))
+                assert len(self.argo_ds) == len(self.original_data)
                     # If not, check based on the split the sizes of the datasets, and make sure the dataset and original dataset match
             
         def __len__(self):
             return len(self.original_data)
         
         def __getitem__(self, index: int):
-            if self.split == 'test':
-                return self.original_data[index]
+            #Experimental
+            if self.split in ['test']:
+                _,c,std,mu,var,y = self.argo_ds[index]
+                return self.original_data[index][0].float(), c.float(), std.float(), torch.zeros(self.original_data[index][1].shape).float(), torch.zeros(self.original_data[index][1].shape).float(), self.original_data[index][2].long()
+            elif self.split == 'train':
+                if index not in self.training_pool:
+                    _,c,std,mu,var,y = self.argo_ds[index]
+                    return self.original_data[index][0].float(), c.float(), std.float(), torch.zeros(self.original_data[index][1].shape).float(), torch.zeros(self.original_data[index][1].shape).float(), self.original_data[index][2].long()
+                else:
+                    return self.original_data[index][0].float(), self.original_data[index][1].float(), -torch.ones(self.original_data[index][1].shape).float(), 100*torch.ones(self.original_data[index][1].shape).float(), torch.zeros(self.original_data[index][1].shape).float(), self.original_data[index][2].long()
+            elif self.split == 'val':
+                _,c,std,mu,var,y = self.argo_ds[index]
+                return self.original_data[index][0].float(), c.float(), std.float(), torch.zeros(self.original_data[index][1].shape).float(), torch.zeros(self.original_data[index][1].shape).float(), self.original_data[index][2].long()
             else:
-                x,c,std,y = self.ds[index]
-                return self.original_data[index][0], c, self.original_data[index][2]
+                raise NotImplementedError()
         
         def get_pos_weights(self):
             raise NotImplementedError
@@ -351,7 +335,7 @@ def train(args):
     classes[new_temp_args.dataset] = GPDataset
     logger.debug(f"Available datasets: {classes}")
     print(new_temp_args)
-    final_args = prepare_cbm(new_temp_args)
+    final_args = prepare_cbm(new_temp_args, alpha=5)
     vars(args).update(vars(final_args))
     
     return args

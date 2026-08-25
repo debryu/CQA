@@ -54,12 +54,16 @@ def train(args):
                                concept_set = args.concept_set, batch_size = args.batch_size, 
                                device = args.device, pool_mode = "avg", save_dir = args.activation_dir)
         
+    if 'dermamnist' in args.concept_set:
+        args.concept_set = 'dermamnist'
+
     target_save_name, clip_save_name, text_save_name = get_save_names(args.clip_name, args.backbone, 
                                             args.feature_layer,d_train, args.concept_set, "avg", args.activation_dir)
     val_target_save_name, val_clip_save_name, text_save_name =  get_save_names(args.clip_name, args.backbone,
                                             args.feature_layer, d_val, args.concept_set, "avg", args.activation_dir)
     test_target_save_name, test_clip_save_name, text_save_name =  get_save_names(args.clip_name, args.backbone,
                                             args.feature_layer, d_test, args.concept_set, "avg", args.activation_dir)
+    
     
     logger.debug(f"Target save name: {target_save_name}")
     logger.debug(f"Clip save name: {clip_save_name}")
@@ -87,6 +91,7 @@ def train(args):
 
         del image_features, text_features, val_image_features
 
+    
     train_targets = get_targets_only(args.dataset, "train")
     val_targets = get_targets_only(args.dataset, "val")
     test_targets = get_targets_only(args.dataset, "test")
@@ -131,7 +136,7 @@ def train(args):
             best_loss = np.mean(v_losses)
             W_g = final_layer.asso_mat
             patience = 0
-        if patience > 600:
+        if patience > 10:
             break
     b_g = torch.zeros(len(classes))
     predictions = []
